@@ -12,7 +12,13 @@ inline float limit(float x, float lo, float hi)
 inline float boundedStep(float dt) { return limit(dt, 0.0f, 1.0f / 15.0f); }
 inline float wheelTarget(float current, float amount, float reference, float lo, float hi)
 {
-    return limit(std::exp(limit(std::log(current) + amount / reference, std::log(lo), std::log(hi))), lo, hi);
+    if (amount == 0.0f)
+        return limit(current, lo, hi);
+    const float logTarget = std::log(current) + amount / reference;
+    // Return exact bounds rather than round-tripping log/exp at a limit.
+    if (logTarget <= std::log(lo)) return lo;
+    if (logTarget >= std::log(hi)) return hi;
+    return limit(std::exp(logTarget), lo, hi);
 }
 inline float smoothStep(float t)
 {
