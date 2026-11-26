@@ -170,7 +170,9 @@ ActiveBody::ActiveBody( Thing *thing, const ModuleData* moduleData ) :
 	m_lastDamageCleared(false),
 	m_particleSystems(nullptr),
 	m_currentSubdualDamage(0),
-	m_indestructible(false)
+	m_indestructible(false),
+	m_validatedArmorTemplate(nullptr),
+	m_validatedArmorTemplateRevision(0)
 {
 	m_currentHealth = getActiveBodyModuleData()->m_initialHealth;
 	m_prevHealth = getActiveBodyModuleData()->m_initialHealth;
@@ -263,9 +265,16 @@ void ActiveBody::setDamageState( BodyDamageType newState )
 //-------------------------------------------------------------------------------------------------
 void ActiveBody::validateArmorAndDamageFX() const
 {
-	const ArmorTemplateSet* set = getObject()->getTemplate()->findArmorTemplateSet(m_curArmorSetFlags);
+	const ThingTemplate* thingTemplate = getObject()->getTemplate();
+	const UnsignedInt64 revision = ThingTemplate::getArmorTemplateRevision();
+	const Bool templateChanged = m_validatedArmorTemplate != thingTemplate ||
+		m_validatedArmorTemplateRevision != revision;
+	if (!templateChanged && m_curArmorSet && m_validatedArmorSetFlags == m_curArmorSetFlags)
+		return;
+
+	const ArmorTemplateSet* set = thingTemplate->findArmorTemplateSet(m_curArmorSetFlags);
 	DEBUG_ASSERTCRASH(set, ("findArmorSet should never return null"));
-	if (set && set != m_curArmorSet)
+	if (set && (templateChanged || set != m_curArmorSet))
 	{
 		if (set->getArmorTemplate())
 		{
@@ -278,6 +287,10 @@ void ActiveBody::validateArmorAndDamageFX() const
 		m_curDamageFX = set->getDamageFX();
 		m_curArmorSet = set;
 	}
+	// A failed lookup must never become a valid cached selection.
+	m_validatedArmorTemplate = set ? thingTemplate : nullptr;
+	m_validatedArmorTemplateRevision = revision;
+	m_validatedArmorSetFlags = m_curArmorSetFlags;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1685,6 +1698,8 @@ void ActiveBody::xfer( Xfer *xfer )
 
 	// armor set flags
 	m_curArmorSetFlags.xfer( xfer );
+	if (xfer->getXferMode() == XFER_LOAD)
+		m_validatedArmorTemplate = nullptr;
 
 }
 
@@ -1696,5 +1711,6 @@ void ActiveBody::loadPostProcess()
 
 	// extend base class
 	BodyModule::loadPostProcess();
+	m_validatedArmorTemplate = nullptr;
 
 }

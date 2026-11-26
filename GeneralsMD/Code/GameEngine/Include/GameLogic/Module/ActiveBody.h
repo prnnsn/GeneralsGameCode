@@ -170,4 +170,9 @@ private:
 	mutable Armor											m_curArmor;
 	mutable const DamageFX*						m_curDamageFX;
 
+	// Derived cache only: the authoritative state is m_curArmorSetFlags.
+	mutable const ThingTemplate* m_validatedArmorTemplate;
+	mutable UnsignedInt64 m_validatedArmorTemplateRevision;
+	mutable ArmorSetFlags m_validatedArmorSetFlags;
+
 };
