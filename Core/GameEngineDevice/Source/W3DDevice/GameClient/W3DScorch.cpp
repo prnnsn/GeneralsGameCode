@@ -25,6 +25,7 @@
 #include "W3DDevice/GameClient/TerrainTex.h"
 #include "W3DDevice/GameClient/WorldHeightMap.h"
 #include "WW3D2/dx8wrapper.h"
+#include "WW3D2/Renderer.h"
 #include "WW3D2/ScopedTerrainDecalDepthBias.h"
 
 W3DScorch::W3DScorch(bool deduplicateScorches)
@@ -125,14 +126,14 @@ void W3DScorch::drawScorches(WorldHeightMap& map)
 	}
 	DX8Wrapper::Set_Index_Buffer(m_indexScorch, 0);
 	DX8Wrapper::Set_Vertex_Buffer(m_vertexScorch);
-	DX8Wrapper::Set_Shader(ShaderClass::_PresetAlphaShader);
+	Renderer::Set_Shader(ShaderClass::_PresetAlphaShader);
 
-	DX8Wrapper::Set_Texture(0, m_scorchTexture);
-	DX8Wrapper::Apply_Render_State_Changes();
+	Renderer::Set_Texture(0, m_scorchTexture);
+	Renderer::Apply_Render_State_Changes();
 	// A constant bias avoids depth-state transitions during continuous zoom.
 	// Use the extra step only for persistent terrain scorch marks.
 	const ScopedTerrainDecalDepthBias bias(2);
-	DX8Wrapper::Draw_Triangles(0, m_curNumScorchIndices / 3, 0, m_curNumScorchVertices);
+	Renderer::Draw_Triangles(0, m_curNumScorchIndices / 3, 0, m_curNumScorchVertices);
 }
 
 static Real getMapHeight(WorldHeightMap& map, Int x, Int y)
