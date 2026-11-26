@@ -471,7 +471,7 @@ static Int getVictimAntiMask(const Object* victim)
 //-------------------------------------------------------------------------------------------------
 void WeaponSet::weaponSetOnWeaponBonusChange(const Object *source)
 {
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		Weapon *weapon = m_weapons[ i ];
 		if( weapon )
@@ -487,7 +487,7 @@ Bool WeaponSet::isAnyWithinTargetPitch(const Object* obj, const Object* victim) 
 	if (!m_hasPitchLimit)
 		return true;
 
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		const Weapon* weapon = m_weapons[ i ];
 		if (weapon && weapon->isWithinTargetPitch(obj, victim))
@@ -882,7 +882,7 @@ Bool WeaponSet::chooseBestWeaponForTarget(const Object* obj, const Object* victi
 	WeaponSlotType currentDecisionBackup = PRIMARY_WEAPON;
 
 	// go backwards, so that in the event of ties, the primary weapon is preferred
-	for (Int i = WEAPONSLOT_COUNT - 1; i >= PRIMARY_WEAPON ; --i)
+	for (Int i = previousOccupiedWeaponSlot(WEAPONSLOT_COUNT); i >= PRIMARY_WEAPON; i = previousOccupiedWeaponSlot(i))
 	{
 		/*
 			First: eliminate the weapons that cannot be used.
@@ -1031,7 +1031,7 @@ Bool WeaponSet::chooseBestWeaponForTarget(const Object* obj, const Object* victi
 //-------------------------------------------------------------------------------------------------
 void WeaponSet::reloadAllAmmo(const Object *obj, Bool now)
 {
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		Weapon* weapon = m_weapons[i];
 		if (weapon != nullptr)
@@ -1047,7 +1047,7 @@ void WeaponSet::reloadAllAmmo(const Object *obj, Bool now)
 //-------------------------------------------------------------------------------------------------
 Bool WeaponSet::isOutOfAmmo() const
 {
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		const Weapon* weapon = m_weapons[i];
 		if (weapon == nullptr)
@@ -1063,7 +1063,7 @@ Bool WeaponSet::isOutOfAmmo() const
 //-------------------------------------------------------------------------------------------------
 const Weapon* WeaponSet::findAmmoPipShowingWeapon() const
 {
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		const Weapon *weapon = m_weapons[ i ];
 		if (weapon && weapon->isShowsAmmoPips())
@@ -1077,7 +1077,7 @@ const Weapon* WeaponSet::findAmmoPipShowingWeapon() const
 //-------------------------------------------------------------------------------------------------
 Weapon* WeaponSet::findWaypointFollowingCapableWeapon()
 {
-	for( Int i = WEAPONSLOT_COUNT - 1; i >= PRIMARY_WEAPON; i-- )
+	for (Int i = previousOccupiedWeaponSlot(WEAPONSLOT_COUNT); i >= PRIMARY_WEAPON; i = previousOccupiedWeaponSlot(i))
 	{
 		if( m_weapons[i] && m_weapons[i]->isCapableOfFollowingWaypoint() )
 		{
@@ -1091,7 +1091,7 @@ Weapon* WeaponSet::findWaypointFollowingCapableWeapon()
 UnsignedInt WeaponSet::getMostPercentReadyToFireAnyWeapon() const
 {
 	UnsignedInt mostReady = 0;
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		if( m_weapons[ i ] )
 		{
@@ -1185,7 +1185,7 @@ Weapon* WeaponSet::getWeaponInWeaponSlot(WeaponSlotType wslot) const
 	//or else those weapons will have unlimited range!
 void WeaponSet::clearLeechRangeModeForAllWeapons()
 {
-	for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		Weapon* weapon = m_weapons[ i ];
 		if( weapon )
