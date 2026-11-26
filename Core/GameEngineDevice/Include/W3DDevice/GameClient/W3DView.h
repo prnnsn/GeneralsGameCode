@@ -301,9 +301,11 @@ private:
 	Bool m_recalcCameraConstraintsAfterScrolling; ///< Recalculates the camera area constraints after the user has moved the camera
 	Bool m_recalcCamera; ///< Recalculates the camera transform in the next render update
 
-	bool m_cursorZoomActive = false;
+	bool m_cursorZoomActive = false; ///< Manual wheel transition, including background zoom
+	bool m_cursorZoomHasAnchor = false;
+	Real m_cursorZoomVelocity = 0.0f; ///< Log-height velocity per second
 	Vector3 m_cursorZoomAnchor;
-	Vector3 m_cursorZoomRay; ///< View-space direction of the selected point as it approaches the center
+	Vector3 m_cursorZoomRay; ///< Fixed view-space ray of the selected point
 	ICoord2D m_cursorZoomScreen; ///< Cursor position that selected the point
 	Coord2D m_cursorZoomPivot; ///< Last pivot after applying the map constraints
 
@@ -320,7 +322,8 @@ private:
 	void buildCameraTransform(Matrix3D *transform, const Vector3 &sourcePos, const Vector3 &targetPos); ///< calculate (but do not set) the transform matrix of m_3DCamera, based on m_pos & m_angle
 	void adjustCameraPositionAboveTerrain(Vector3 &sourcePos, Vector3 &targetPos) const;
 	Bool zoomCameraToDesiredHeight();
-	Bool applyCursorZoomAnchor(Bool constrainToMap);
+	Bool updateStrategicZoom();
+	Coord2D getCursorZoomPosition();
 	Bool movePivotToGround();
 	Bool updateCameraAreaConstraints();
 	void calcCameraAreaConstraints(); ///< Recalculates the camera area constraints
