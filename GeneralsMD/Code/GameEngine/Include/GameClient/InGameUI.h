@@ -802,6 +802,7 @@ protected:
 	Color												m_systemTimeDropColor;
 
 	// Game Time
+	DisplayString *										m_cameraHeightString;
 	DisplayString *										m_gameTimeString;
 	DisplayString *										m_gameTimeFrameString;
 	AsciiString											m_gameTimeFont;

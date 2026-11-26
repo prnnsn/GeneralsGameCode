@@ -1172,6 +1172,7 @@ InGameUI::InGameUI()
 	m_systemTimeColor = GameMakeColor( 255, 255, 255, 255 );
 	m_systemTimeDropColor = GameMakeColor( 0, 0, 0, 255 );
 
+	m_cameraHeightString = nullptr;
 	m_gameTimeString = nullptr;
 	m_gameTimeFrameString = nullptr;
 	m_gameTimeFont = "Tahoma";
@@ -2293,6 +2294,8 @@ void InGameUI::freeCustomUiResources()
 	m_renderFpsLimitString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_systemTimeString);
 	m_systemTimeString = nullptr;
+	TheDisplayStringManager->freeDisplayString(m_cameraHeightString);
+	m_cameraHeightString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_gameTimeString);
 	m_gameTimeString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_gameTimeFrameString);
@@ -3773,6 +3776,15 @@ void InGameUI::postWindowDraw()
 {
 	Int hudOffsetX = 0;
 	Int hudOffsetY = 0;
+
+	if (m_cameraHeightString && TheTacticalView && TheGameLogic->isInGame() && !TheGameLogic->isInShellGame())
+	{
+		UnicodeString cameraHeight;
+		cameraHeight.format(L"Camera height: %.1f", TheTacticalView->getCurrentHeightAboveGround());
+		m_cameraHeightString->setText(cameraHeight);
+		m_cameraHeightString->draw(kHudAnchorX, kHudAnchorY, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
+		hudOffsetX += m_cameraHeightString->getWidth() + kHudGapPx;
+	}
 
 	if (m_networkLatencyPointSize > 0 && TheGameLogic->isInMultiplayerGame())
 	{
@@ -6068,6 +6080,12 @@ void InGameUI::recreateControlBar()
 
 void InGameUI::refreshCustomUiResources()
 {
+	if (!m_cameraHeightString)
+	{
+		m_cameraHeightString = TheDisplayStringManager->newDisplayString();
+	}
+	m_cameraHeightString->setFont(TheWindowManager->winFindFont("Tahoma", TheGlobalLanguageData->adjustFontSize(10), TRUE));
+
 	refreshNetworkLatencyResources();
 	refreshRenderFpsResources();
 	refreshSystemTimeResources();
