@@ -36,6 +36,8 @@
 #include "GameLogic/Armor.h"
 #include "GameLogic/ArmorSet.h"
 
+class ThingTemplate;
+
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class BodyParticleSystem;
 class ParticleSystemTemplate;
