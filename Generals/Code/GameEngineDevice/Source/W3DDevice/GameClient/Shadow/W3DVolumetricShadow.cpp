@@ -47,6 +47,7 @@
 #include "WW3D2/mesh.h"
 #include "WW3D2/meshmdl.h"
 #include "Lib/BaseType.h"
+#include "Lib/Profile.h"
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "d3dx8math.h"
 #include "Common/GlobalData.h"
@@ -2016,6 +2017,7 @@ void W3DVolumetricShadow::updateMeshVolume(Int meshIndex, Int lightIndex, const 
 
 		if (result != CollisionMath::OUTSIDE)
 		{
+			PROFILER_SECTION_NAME("W3DVolumetricShadow::RebuildVisibleMesh");
 			//
 			// reset the silhouette data and build a new one from this light
 			// source perspective
@@ -2276,6 +2278,8 @@ void W3DVolumetricShadow::addSilhouetteIndices(Int meshIndex, Short edgeStart, S
 // ============================================================================
 void W3DVolumetricShadow::buildSilhouette(Int meshIndex, Vector3 *lightPosObject)
 {
+	PROFILER_SECTION_NAME("W3DVolumetricShadow::BuildSilhouette");
+
 	PolyNeighbor *polyNeighbor;  // the poly we're looking at right now
 	Vector3 normal;  // normal of current polygon
 	Vector3 lightVector;  // vector from light to polygon
@@ -2457,6 +2461,8 @@ void W3DVolumetricShadow::buildSilhouette(Int meshIndex, Vector3 *lightPosObject
 // ============================================================================
 void W3DVolumetricShadow::constructVolume( Vector3 *lightPosObject,Real shadowExtrudeDistance, Int volumeIndex, Int meshIndex )
 {
+	PROFILER_SECTION_NAME("W3DVolumetricShadow::ConstructDynamicVolume");
+
 	Geometry *shadowVolume;
 	Vector3 extrude2;  // the polypoints extruded from edge and light
 	Vector3 edgeVertex2;  // second edge of silhouette
@@ -2707,6 +2713,8 @@ static void setVertexXYZ(VertexFormatXYZ& vertex, const Vector3& position)
 // ============================================================================
 void W3DVolumetricShadow::constructVolumeVB( Vector3 *lightPosObject,Real shadowExtrudeDistance, Int volumeIndex, Int meshIndex )
 {
+	PROFILER_SECTION_NAME("W3DVolumetricShadow::ConstructStaticVolume");
+
 	Geometry *shadowVolume;
 	Vector3 extrude2;  // the polypoints extruded from edge and light
 	Vector3 edgeVertex2;  // second edge of silhouette
@@ -2746,9 +2754,12 @@ void W3DVolumetricShadow::constructVolumeVB( Vector3 *lightPosObject,Real shadow
 		return;
 
 	Short *silhouetteIndices = m_silhouetteIndex[meshIndex];
-	const ShadowVolumeStripLayout layout = PrepareShadowVolumeStrips(silhouetteIndices, indicesPerMesh);
-	vertexCount = layout.vertexCount;
-	polygonCount = layout.triangleCount;
+	{
+		PROFILER_SECTION_NAME("W3DVolumetricShadow::PrepareStaticStrips");
+		const ShadowVolumeStripLayout layout = PrepareShadowVolumeStrips(silhouetteIndices, indicesPerMesh);
+		vertexCount = layout.vertexCount;
+		polygonCount = layout.triangleCount;
+	}
 
 	DEBUG_ASSERTCRASH(m_shadowVolumeVB[ volumeIndex ][meshIndex] == nullptr,("Updating Existing Static Vertex Buffer Shadow"));
 	vbSlot=m_shadowVolumeVB[ volumeIndex ][meshIndex] = TheW3DBufferManager->getSlot(W3DBufferManager::VBM_FVF_XYZ,
@@ -3222,6 +3233,8 @@ void W3DVolumetricShadowManager::renderStencilShadows()
 
 void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 {
+	PROFILER_SECTION_NAME("W3DVolumetricShadowManager::RenderShadows");
+
 	W3DVolumetricShadow *shadow;
 	Int numRenderedShadows = 0;
 
