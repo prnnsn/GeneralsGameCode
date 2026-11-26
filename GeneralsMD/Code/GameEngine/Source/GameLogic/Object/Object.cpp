@@ -143,6 +143,41 @@ static const ModelConditionFlags s_allWeaponFireFlags[] =
 		MODELCONDITION_RELOADING_C,
 		MODELCONDITION_PREATTACK_C,
 		MODELCONDITION_USING_WEAPON_C
+	),
+	MAKE_MODELCONDITION_MASK5(
+		MODELCONDITION_FIRING_D,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_D,
+		MODELCONDITION_RELOADING_D,
+		MODELCONDITION_PREATTACK_D,
+		MODELCONDITION_USING_WEAPON_D
+	),
+	MAKE_MODELCONDITION_MASK5(
+		MODELCONDITION_FIRING_E,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_E,
+		MODELCONDITION_RELOADING_E,
+		MODELCONDITION_PREATTACK_E,
+		MODELCONDITION_USING_WEAPON_E
+	),
+	MAKE_MODELCONDITION_MASK5(
+		MODELCONDITION_FIRING_F,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_F,
+		MODELCONDITION_RELOADING_F,
+		MODELCONDITION_PREATTACK_F,
+		MODELCONDITION_USING_WEAPON_F
+	),
+	MAKE_MODELCONDITION_MASK5(
+		MODELCONDITION_FIRING_G,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_G,
+		MODELCONDITION_RELOADING_G,
+		MODELCONDITION_PREATTACK_G,
+		MODELCONDITION_USING_WEAPON_G
+	),
+	MAKE_MODELCONDITION_MASK5(
+		MODELCONDITION_FIRING_H,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_H,
+		MODELCONDITION_RELOADING_H,
+		MODELCONDITION_PREATTACK_H,
+		MODELCONDITION_USING_WEAPON_H
 	)
 };
 static_assert(ARRAY_SIZE(s_allWeaponFireFlags) == WEAPONSLOT_COUNT, "Incorrect array size");
@@ -4106,6 +4141,7 @@ void Object::crc( Xfer *xfer )
 	* 7: save full mtx, not pos+orient.
 	* 8: Kris: Conversion of object status bits from UnsignedInt to BitFlags<>
 	* 9: Extra sighting for reveal to all with different range units
+	* 10: Zero Hour expanded weapon slot model-condition history.
 	*/
 //-------------------------------------------------------------------------------------------------
 void Object::xfer( Xfer *xfer )
@@ -4121,7 +4157,7 @@ void Object::xfer( Xfer *xfer )
 #endif
 
 #else
-	const XferVersion currentVersion = 9;
+	const XferVersion currentVersion = 10;
 #endif
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
@@ -4552,7 +4588,13 @@ void Object::xfer( Xfer *xfer )
 		// xfer the weaponSetFlags FIRST, since we need 'em to restore the weaponSet properly. (srj)
 		m_curWeaponSetFlags.xfer( xfer );
 		xfer->xferUnsignedInt(&m_weaponBonusCondition);
-		xfer->xferUser(&m_lastWeaponCondition, sizeof(m_lastWeaponCondition));
+		const Int serializedSlotCount = version >= 10 ? WEAPONSLOT_COUNT : 3;
+		xfer->xferUser(&m_lastWeaponCondition, sizeof(m_lastWeaponCondition[0]) * serializedSlotCount);
+		if (xfer->getXferMode() == XFER_LOAD)
+		{
+			for (Int i = serializedSlotCount; i < WEAPONSLOT_COUNT; ++i)
+				m_lastWeaponCondition[i] = WSF_NONE;
+		}
 
 		// do the weaponSet itself after all the weapon-related stuff, just in case
 		xfer->xferSnapshot(&m_weaponSet);
