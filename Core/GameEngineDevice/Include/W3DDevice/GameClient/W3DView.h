@@ -330,7 +330,6 @@ private:
 	Real calcCameraAreaOffset(Real maxEdgeZ);
 	bool isCameraOverviewEnabled() const;
 	Real getCameraOverviewHeight(const Region3D &mapRegion, const Matrix3D &transform) const;
-	Real calcOverviewCameraArea(const Region3D &mapRegion, const Matrix3D &transform);
 	void onZoomChanged();
 	Coord2D clampCameraPosition(Coord2D pos) const;
 	Bool isWithinCameraAreaConstraints() const;

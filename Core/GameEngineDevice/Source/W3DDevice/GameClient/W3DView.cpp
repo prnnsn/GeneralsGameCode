@@ -609,23 +609,34 @@ Bool W3DView::updateCameraAreaConstraints()
 }
 
 //-------------------------------------------------------------------------------------------------
-/*
-Note the following restrictions on camera constraints!
+static Bool getTerrainCameraBounds(Region2D &bounds)
+{
+	const WorldHeightMap *heightMap = TheTerrainRenderObject ? TheTerrainRenderObject->getMap() : nullptr;
+	if (!heightMap || heightMap->getXExtent() < 2 || heightMap->getYExtent() < 2)
+		return false;
 
--- they assume that all maps are raised to the common ground level at the edges.
-		(since you need to add some "buffer" around the edges of your map
-		anyway, this shouldn't be an issue.)
+	// The heightmap counts vertices, including the terrain border. The
+	// last vertex is one grid step before the end of each extent.
+	const Int border = heightMap->getBorderSizeInline();
+	bounds.lo.x = bounds.lo.y = -border * MAP_XY_FACTOR;
+	bounds.hi.x = (heightMap->getXExtent() - 1 - border) * MAP_XY_FACTOR;
+	bounds.hi.y = (heightMap->getYExtent() - 1 - border) * MAP_XY_FACTOR;
+	return true;
+}
 
--- for angles/pitches other than zero, it may show boundaries.
-		since we currently plan the game to be restricted to this,
-		it shouldn't be an issue.
-*/
+//-------------------------------------------------------------------------------------------------
 void W3DView::calcCameraAreaConstraints()
 {
-//	DEBUG_LOG(("*** rebuilding cam constraints"));
+	// Manual overview keeps the look-at position inside the rendered map
+	// at every height, allowing the rest of the frame to extend past it.
+	if (isCameraOverviewEnabled() && getTerrainCameraBounds(m_cameraAreaConstraints))
+	{
+		m_cameraAreaConstraintsValid = true;
+		return;
+	}
 
-	// ok, now check to ensure that we can't see outside the map region,
-	// and twiddle the camera if needed
+	// The standard camera keeps its visible footprint within the playable area.
+	// This assumes level terrain at the edges and the default camera angle.
 	if (TheTerrainLogic)
 	{
 		Region3D mapRegion;
@@ -640,14 +651,6 @@ void W3DView::calcCameraAreaConstraints()
 			cameraTransform.Look_At(sourcePos, targetPos, 0);
 		else
 			buildCameraTransform(&cameraTransform, sourcePos, targetPos);
-
-		const Real overviewBlend = isCameraOverviewEnabled() ? calcOverviewCameraArea(mapRegion, cameraTransform) : 0.0f;
-		if (overviewBlend >= 1.0f)
-		{
-			m_cameraAreaConstraintsValid = true;
-			return;
-		}
-		const Region2D overviewConstraints = m_cameraAreaConstraints;
 
 		Matrix3D prevCameraTransform = m_3DCamera->Get_Transform();
 		m_3DCamera->Set_Transform(cameraTransform);
@@ -664,13 +667,6 @@ void W3DView::calcCameraAreaConstraints()
 		m_cameraAreaConstraints.lo.y = mapRegion.lo.y + offset;
 		m_cameraAreaConstraints.hi.y = mapRegion.hi.y - offset;
 
-		if (overviewBlend > 0.0f)
-		{
-			m_cameraAreaConstraints.lo.x = WWMath::Lerp(m_cameraAreaConstraints.lo.x, overviewConstraints.lo.x, overviewBlend);
-			m_cameraAreaConstraints.hi.x = WWMath::Lerp(m_cameraAreaConstraints.hi.x, overviewConstraints.hi.x, overviewBlend);
-			m_cameraAreaConstraints.lo.y = WWMath::Lerp(m_cameraAreaConstraints.lo.y, overviewConstraints.lo.y, overviewBlend);
-			m_cameraAreaConstraints.hi.y = WWMath::Lerp(m_cameraAreaConstraints.hi.y, overviewConstraints.hi.y, overviewBlend);
-		}
 		m_cameraAreaConstraintsValid = true;
 	}
 }
@@ -720,55 +716,6 @@ Real W3DView::getCameraOverviewHeight(const Region3D &mapRegion, const Matrix3D 
 
 	// Leave a small margin for the camera's interpolation and terrain adjustment.
 	return std::max(m_maxHeightAboveGround, requiredHeight*1.04f);
-}
-
-Real W3DView::calcOverviewCameraArea(const Region3D &mapRegion, const Matrix3D &transform)
-{
-	const Real height = getCameraOffsetZ()*m_zoom - m_pos.z;
-	if (height <= m_maxHeightAboveGround)
-		return 0.0f;
-
-	const Real overviewHeight = getCameraOverviewHeight(mapRegion, transform);
-	// Use the legacy constraints at the legacy zoom and converge on the map
-	// center as the camera reaches the height needed to frame the entire map.
-	const Real remainingRange = WWMath::Clamp(
-		(overviewHeight - height)/std::max(overviewHeight - m_maxHeightAboveGround, 1.0f), 0.0f, 1.0f);
-	const Vector2 mapCenter((mapRegion.lo.x + mapRegion.hi.x)*0.5f, (mapRegion.lo.y + mapRegion.hi.y)*0.5f);
-
-	Vector2 viewMin, viewMax;
-	m_3DCamera->Get_View_Plane(viewMin, viewMax);
-	const Vector3 eye = transform.Get_Translation();
-	const Vector3 eyeOffset = eye - Vector3(m_pos.x + m_shakeOffset.x, m_pos.y + m_shakeOffset.y, m_pos.z);
-	const Vector3 forward = -transform.Get_Z_Vector();
-	Vector2 footprintMin(0.0f, 0.0f), footprintMax(0.0f, 0.0f);
-	for (Int i = 0; i < 4; ++i)
-	{
-		const Vector3 ray = forward + ((i & 1) ? viewMax.X : viewMin.X)*transform.Get_X_Vector()
-			+ ((i & 2) ? viewMax.Y : viewMin.Y)*transform.Get_Y_Vector();
-		// An upper ray can cross the horizon at low pitch. Leave that side
-		// of the map unconstrained by the footprint.
-		if (!(ray.Z < -0.0001f))
-			continue;
-		const Vector3 groundOffset = eyeOffset - ray*(eyeOffset.Z/ray.Z);
-		const Vector2 corner(groundOffset.X, groundOffset.Y);
-		footprintMin.Update_Min(corner);
-		footprintMax.Update_Max(corner);
-	}
-
-	m_cameraAreaConstraints.lo.x = mapCenter.X + remainingRange
-		*(std::min(mapCenter.X, mapRegion.lo.x - footprintMin.X) - mapCenter.X);
-	m_cameraAreaConstraints.hi.x = mapCenter.X + remainingRange
-		*(std::max(mapCenter.X, mapRegion.hi.x - footprintMax.X) - mapCenter.X);
-	m_cameraAreaConstraints.lo.y = mapCenter.Y + remainingRange
-		*(std::min(mapCenter.Y, mapRegion.lo.y - footprintMin.Y) - mapCenter.Y);
-	m_cameraAreaConstraints.hi.y = mapCenter.Y + remainingRange
-		*(std::max(mapCenter.Y, mapRegion.hi.y - footprintMax.Y) - mapCenter.Y);
-
-	// Join the two constraint rectangles smoothly near the usual zoom limit.
-	const Real blendHeight = std::max(1.0f,
-		std::min(m_maxHeightAboveGround * 0.2f, overviewHeight - m_maxHeightAboveGround));
-	const Real t = WWMath::Clamp((height - m_maxHeightAboveGround) / blendHeight, 0.0f, 1.0f);
-	return t * t * (3.0f - 2.0f * t);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -830,7 +777,7 @@ Bool W3DView::isWithinCameraAreaConstraints() const
 	const Coord3D &pos = getPosition();
 	if (isCameraOverviewEnabled())
 	{
-		// At maximum overview an axis may be locked to its midpoint.
+		// The center can reach the outermost terrain vertices.
 		return pos.x >= m_cameraAreaConstraints.lo.x && pos.x <= m_cameraAreaConstraints.hi.x
 			&& pos.y >= m_cameraAreaConstraints.lo.y && pos.y <= m_cameraAreaConstraints.hi.y;
 	}
@@ -2554,7 +2501,7 @@ void W3DView::zoomAt(Real height, const ICoord2D &screen)
 	m_cursorZoomHasAnchor = false;
 	m_cursorZoomPivot = getPosition2D();
 
-	// Background or terrain outside the playable map releases the anchor.
+	// Background or input outside the viewport releases the anchor.
 	if (screen.x < m_originX || screen.x >= m_originX + getWidth()
 		|| screen.y < m_originY || screen.y >= m_originY + getHeight())
 	{
@@ -2565,10 +2512,10 @@ void W3DView::zoomAt(Real height, const ICoord2D &screen)
 	if (!screenToTerrain(&screen, &ground))
 		return;
 
-	Region3D mapRegion;
-	TheTerrainLogic->getExtent(&mapRegion);
-	if (!(ground.x >= mapRegion.lo.x && ground.x <= mapRegion.hi.x
-		&& ground.y >= mapRegion.lo.y && ground.y <= mapRegion.hi.y))
+	Region2D terrainBounds;
+	if (!getTerrainCameraBounds(terrainBounds)
+		|| !(ground.x >= terrainBounds.lo.x && ground.x <= terrainBounds.hi.x
+			&& ground.y >= terrainBounds.lo.y && ground.y <= terrainBounds.hi.y))
 	{
 		return;
 	}
