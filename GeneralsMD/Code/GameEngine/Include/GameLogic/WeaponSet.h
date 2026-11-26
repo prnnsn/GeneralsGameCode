@@ -34,6 +34,10 @@
 #include "Common/Snapshot.h"
 #include "GameLogic/Damage.h"
 
+#if __cplusplus >= 202002L
+#include <bit>
+#endif
+
 //-------------------------------------------------------------------------------------------------
 class INI;
 class Object;
@@ -221,6 +225,42 @@ public:
 	void updateWeaponSet(const Object* obj);
 	void reloadAllAmmo(const Object *obj, Bool now);
 	Bool isOutOfAmmo() const;
+	// Iterate occupied slots without changing slot IDs or traversal order.
+	// Return WEAPONSLOT_COUNT / -1 at the respective end.
+	Int nextOccupiedWeaponSlot(Int after) const
+	{
+		if (after >= WEAPONSLOT_COUNT - 1)
+			return WEAPONSLOT_COUNT;
+		UnsignedInt bits = m_filledWeaponSlotMask >> (after + 1);
+		if (!bits)
+			return WEAPONSLOT_COUNT;
+#if __cplusplus >= 202002L
+		Int slot = after + 1 + (Int)std::countr_zero(bits);
+#else
+		Int slot = after + 1;
+		while (!(bits & 1u)) { bits >>= 1; ++slot; }
+#endif
+		return slot < WEAPONSLOT_COUNT ? slot : WEAPONSLOT_COUNT;
+	}
+
+	Int previousOccupiedWeaponSlot(Int before) const
+	{
+		if (before <= PRIMARY_WEAPON)
+			return -1;
+		UnsignedInt bits = m_filledWeaponSlotMask;
+		if (before < 32)
+			bits &= (1u << before) - 1u;
+		if (!bits)
+			return -1;
+#if __cplusplus >= 202002L
+		return 31 - (Int)std::countl_zero(bits);
+#else
+		Int slot = 0;
+		while (bits >>= 1) ++slot;
+		return slot;
+#endif
+	}
+
 	Bool hasAnyWeapon() const { return m_filledWeaponSlotMask != 0; }
 	Bool hasAnyDamageWeapon() const { return m_hasDamageWeapon; }
 	Bool hasWeaponToDealDamageType(DamageType typeToDeal) const { return m_totalDamageTypeMask.test(typeToDeal); }
