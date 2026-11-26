@@ -31,6 +31,7 @@
 
 #include "Common/FileSystem.h"	// this is only here to pull in LOAD_TEST_ASSETS
 #include "Common/GlobalData.h"
+#include <Lib/Profile.h>
 #include "Common/ThingTemplate.h"
 #include "Common/Xfer.h"
 #include "GameClient/Drawable.h"
@@ -66,6 +67,7 @@ W3DDebrisDraw::W3DDebrisDraw(Thing *thing, const ModuleData* moduleData) : DrawM
 //-------------------------------------------------------------------------------------------------
 W3DDebrisDraw::~W3DDebrisDraw()
 {
+	PROFILER_SECTION_NAME("W3DDebrisDraw::Destroy");
 	if (TheW3DShadowManager && m_shadow)
 	{
 		TheW3DShadowManager->removeShadow(m_shadow);
@@ -103,6 +105,7 @@ void W3DDebrisDraw::setFullyObscuredByShroud(Bool fullyObscured)
 //-------------------------------------------------------------------------------------------------
 void W3DDebrisDraw::setModelName(AsciiString name, Color color, ShadowType t)
 {
+	PROFILER_SECTION_NAME("W3DDebrisDraw::SetModel");
   if (m_renderObject == nullptr && !name.isEmpty())
 	{
 		Int hexColor = 0;
@@ -129,7 +132,10 @@ void W3DDebrisDraw::setModelName(AsciiString name, Color color, ShadowType t)
 		{
 			Shadow::ShadowTypeInfo shadowInfo;
 			shadowInfo.m_type = t;
-  		m_shadow = TheW3DShadowManager->addShadow(m_renderObject, &shadowInfo);
+  		{
+			PROFILER_SECTION_NAME("W3DDebrisDraw::CreateShadow");
+			m_shadow = TheW3DShadowManager->addShadow(m_renderObject, &shadowInfo);
+		}
 		}
 		else
 		{
@@ -150,6 +156,7 @@ void W3DDebrisDraw::setModelName(AsciiString name, Color color, ShadowType t)
 //-------------------------------------------------------------------------------------------------
 void W3DDebrisDraw::setAnimNames(AsciiString initial, AsciiString flying, AsciiString finalAnim, const FXList* finalFX)
 {
+	PROFILER_SECTION_NAME("W3DDebrisDraw::SetAnimations");
 	int i;
 	for (i = 0; i < STATECOUNT; ++i)
 	{
@@ -205,16 +212,22 @@ void W3DDebrisDraw::reactToTransformChange( const Matrix3D *oldMtx,
 {
 
 	if( m_renderObject )
+	{
+		PROFILER_SECTION_NAME("W3DDebrisDraw::TransformChanged");
 		m_renderObject->Set_Transform( *getDrawable()->getTransformMatrix() );
+	}
 
 }
 
 //-------------------------------------------------------------------------------------------------
 void W3DDebrisDraw::doDrawModule(const Matrix3D* transformMtx)
 {
+	PROFILER_SECTION_NAME("W3DDebrisDraw::DrawUpdate");
 	if (m_renderObject)
 	{
 
+		{
+		PROFILER_SECTION_NAME("W3DDebrisDraw::DrawTransform");
 		Matrix3D scaledTransform;
 		if (getDrawable()->getInstanceScale() != 1.0f)
 		{
@@ -225,6 +238,9 @@ void W3DDebrisDraw::doDrawModule(const Matrix3D* transformMtx)
 			m_renderObject->Set_ObjectScale(getDrawable()->getInstanceScale());
 		}
 		m_renderObject->Set_Transform(*transformMtx);
+		}
+
+		PROFILER_SECTION_NAME("W3DDebrisDraw::AnimationUpdate");
 
 		static const RenderObjClass::AnimMode TheAnimModes[] =
 		{
@@ -251,7 +267,10 @@ void W3DDebrisDraw::doDrawModule(const Matrix3D* transformMtx)
 			RenderObjClass::AnimMode m = TheAnimModes[m_state];
 			if (m_state == FINAL)
 			{
-				FXList::doFXPos(m_fxFinal, getDrawable()->getPosition(), getDrawable()->getTransformMatrix(), 0, nullptr, 0.0f);
+				{
+					PROFILER_SECTION_NAME("W3DDebrisDraw::FinalFX");
+					FXList::doFXPos(m_fxFinal, getDrawable()->getPosition(), getDrawable()->getTransformMatrix(), 0, nullptr, 0.0f);
+				}
 				if (m_finalStop)
 					m = RenderObjClass::ANIM_MODE_MANUAL;
 			}
