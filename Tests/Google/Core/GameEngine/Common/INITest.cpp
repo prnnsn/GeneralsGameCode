@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "Common/INI.h"
+#include "Common/INIValidationDiagnostic.h"
 
 TEST(INI, OversizedIntegersMatchLegacyParser)
 {
@@ -119,4 +120,34 @@ TEST(INI, InvalidRealsAreRejected)
 		Real legacy;
 		EXPECT_NE(std::sscanf(token, "%f", &legacy), 1);
 	}
+}
+
+
+TEST(INIValidation, DiagnosticIdentifiesValidatorAndSeverity)
+{
+	using namespace INIValidation;
+	Diagnostic startup(INITIAL_INI_VALIDATOR, SEVERITY_DEFERRED, "REF_UPGRADE");
+	startup.file = "Data/INI/Object/Test.ini";
+	startup.line = 42;
+	startup.entity = "TestTank";
+	startup.module = "GrantUpgradeCreate";
+	startup.moduleTag = "ModuleTag_Test";
+	startup.field = "UpgradeToGrant";
+	startup.value = "Upgrade_Missing";
+	EXPECT_EQ(formatDiagnostic(startup),
+		"[IIV] [DEFERRED] rule=\"REF_UPGRADE\" file=\"Data/INI/Object/Test.ini\" line=42 entity=\"TestTank\" module=\"GrantUpgradeCreate\" tag=\"ModuleTag_Test\" field=\"UpgradeToGrant\" value=\"Upgrade_Missing\"");
+
+	Diagnostic map(MAP_INI_VALIDATOR, SEVERITY_ERROR, "REF_UPGRADE");
+	EXPECT_EQ(formatDiagnostic(map), "[MIV] [ERROR] rule=\"REF_UPGRADE\"");
+	EXPECT_STREQ(severityName(SEVERITY_VALID), "VALID");
+	EXPECT_STREQ(severityName(SEVERITY_WARNING), "WARNING");
+}
+
+TEST(INIValidation, DiagnosticEscapesMalformedInputAndOmitsUnknownLine)
+{
+	using namespace INIValidation;
+	Diagnostic diagnostic(MAP_INI_VALIDATOR, SEVERITY_WARNING, "UNKNOWN_FIELD");
+	diagnostic.value = "a\n\r\t\"\\b";
+	EXPECT_EQ(formatDiagnostic(diagnostic),
+		"[MIV] [WARNING] rule=\"UNKNOWN_FIELD\" value=\"a\\x0A\\x0D\\x09\\\"\\\\b\"");
 }
