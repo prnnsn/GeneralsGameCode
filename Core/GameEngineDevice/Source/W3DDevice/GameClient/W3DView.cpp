@@ -644,22 +644,13 @@ void W3DView::calcCameraAreaConstraints()
 		else
 			buildCameraTransform(&cameraTransform, sourcePos, targetPos);
 
-		Real overviewBlend = 0.0f;
-		Region2D overviewConstraints = m_cameraAreaConstraints;
-		if (isCameraOverviewEnabled() && calcOverviewCameraArea(mapRegion, cameraTransform))
+		const Real overviewBlend = isCameraOverviewEnabled() ? calcOverviewCameraArea(mapRegion, cameraTransform) : 0.0f;
+		if (overviewBlend >= 1.0f)
 		{
-			const Real height = getCameraOffsetZ() * m_zoom - m_pos.z;
-			const Real maxHeight = getCameraOverviewHeight(mapRegion, cameraTransform);
-			const Real span = std::min(std::max(m_maxHeightAboveGround * 0.2f, 1.0f),
-				std::max(maxHeight - m_maxHeightAboveGround, 1.0f));
-			overviewBlend = StrategicCameraZoom::smoothStep((height - m_maxHeightAboveGround) / span);
-			if (overviewBlend >= 1.0f)
-			{
-				m_cameraAreaConstraintsValid = true;
-				return;
-			}
-			overviewConstraints = m_cameraAreaConstraints;
+			m_cameraAreaConstraintsValid = true;
+			return;
 		}
+		const Region2D overviewConstraints = m_cameraAreaConstraints;
 
 		Matrix3D prevCameraTransform = m_3DCamera->Get_Transform();
 		m_3DCamera->Set_Transform(cameraTransform);
@@ -675,15 +666,14 @@ void W3DView::calcCameraAreaConstraints()
 		m_cameraAreaConstraints.hi.x = mapRegion.hi.x - offset;
 		m_cameraAreaConstraints.lo.y = mapRegion.lo.y + offset;
 		m_cameraAreaConstraints.hi.y = mapRegion.hi.y - offset;
-		// Smoothly join the legacy and overview constraint rectangles.
+
 		if (overviewBlend > 0.0f)
 		{
-			m_cameraAreaConstraints.lo.x += (overviewConstraints.lo.x - m_cameraAreaConstraints.lo.x) * overviewBlend;
-			m_cameraAreaConstraints.hi.x += (overviewConstraints.hi.x - m_cameraAreaConstraints.hi.x) * overviewBlend;
-			m_cameraAreaConstraints.lo.y += (overviewConstraints.lo.y - m_cameraAreaConstraints.lo.y) * overviewBlend;
-			m_cameraAreaConstraints.hi.y += (overviewConstraints.hi.y - m_cameraAreaConstraints.hi.y) * overviewBlend;
+			m_cameraAreaConstraints.lo.x = WWMath::Lerp(m_cameraAreaConstraints.lo.x, overviewConstraints.lo.x, overviewBlend);
+			m_cameraAreaConstraints.hi.x = WWMath::Lerp(m_cameraAreaConstraints.hi.x, overviewConstraints.hi.x, overviewBlend);
+			m_cameraAreaConstraints.lo.y = WWMath::Lerp(m_cameraAreaConstraints.lo.y, overviewConstraints.lo.y, overviewBlend);
+			m_cameraAreaConstraints.hi.y = WWMath::Lerp(m_cameraAreaConstraints.hi.y, overviewConstraints.hi.y, overviewBlend);
 		}
-
 		m_cameraAreaConstraintsValid = true;
 	}
 }
@@ -735,11 +725,11 @@ Real W3DView::getCameraOverviewHeight(const Region3D &mapRegion, const Matrix3D 
 	return std::max(m_maxHeightAboveGround, requiredHeight*1.04f);
 }
 
-bool W3DView::calcOverviewCameraArea(const Region3D &mapRegion, const Matrix3D &transform)
+Real W3DView::calcOverviewCameraArea(const Region3D &mapRegion, const Matrix3D &transform)
 {
 	const Real height = getCameraOffsetZ()*m_zoom - m_pos.z;
 	if (height <= m_maxHeightAboveGround)
-		return false;
+		return 0.0f;
 
 	const Real overviewHeight = getCameraOverviewHeight(mapRegion, transform);
 	// Use the legacy constraints at the legacy zoom and converge on the map
@@ -776,7 +766,11 @@ bool W3DView::calcOverviewCameraArea(const Region3D &mapRegion, const Matrix3D &
 		*(std::min(mapCenter.Y, mapRegion.lo.y - footprintMin.Y) - mapCenter.Y);
 	m_cameraAreaConstraints.hi.y = mapCenter.Y + remainingRange
 		*(std::max(mapCenter.Y, mapRegion.hi.y - footprintMax.Y) - mapCenter.Y);
-	return true;
+
+	// Join the two constraint rectangles smoothly near the usual zoom limit.
+	const Real blendHeight = std::max(1.0f,
+		std::min(m_maxHeightAboveGround * 0.2f, overviewHeight - m_maxHeightAboveGround));
+	return StrategicCameraZoom::smoothStep((height - m_maxHeightAboveGround) / blendHeight);
 }
 
 //-------------------------------------------------------------------------------------------------
