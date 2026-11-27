@@ -29,6 +29,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
+#include <algorithm>
+
 #include "Common/AudioEventRTS.h"
 #include "Common/Debug.h"
 #include "Common/GlobalData.h"
@@ -61,19 +63,6 @@
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 enum { OVERLAY_REFRESH_RATE = 6 };  ///< over updates once this many frames
-
-//-------------------------------------------------------------------------------------------------
-/** Is the point legal, that is, inside the resolution of the radar cells */
-//-------------------------------------------------------------------------------------------------
-inline Bool legalRadarPoint( Int px, Int py )
-{
-
-	if( px < 0 || py < 0 || px >= RADAR_CELL_WIDTH || py >= RADAR_CELL_HEIGHT )
-		return FALSE;
-
-	return TRUE;
-
-}
 
 //-------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
@@ -620,13 +609,16 @@ void W3DRadar::drawIcons( Int pixelX, Int pixelY, Int width, Int height )
 //-------------------------------------------------------------------------------------------------
 void W3DRadar::updateObjectTexture(TextureClass *texture)
 {
-	// Reset the overlay texture before adding any markers.
-	if (!texture || !Renderer::Clear_Texture_2D_Mip(*texture))
+	Renderer::TextureMipWrite write;
+	if (!texture || !write.Try_Begin(*texture))
 		return;
 
-	// rebuild the object overlay
-	renderObjectList( m_objectList, texture );
-	renderObjectList( m_localObjectList, texture );
+	const auto &view = write.View();
+	if (!RenderTextures::TryClearRows(view.layout, view.data, view.pitch, view.byte_count))
+		return;
+
+	renderObjectList( m_objectList, view );
+	renderObjectList( m_localObjectList, view );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -678,28 +670,16 @@ Bool W3DRadar::canRenderObject( const RadarObject *rObj, const Player *localPlay
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Render an object list into the texture passed in */
+/** Render an object list into the mapped radar overlay */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::renderObjectList( const RadarObject *listHead, TextureClass *texture )
+void W3DRadar::renderObjectList( const RadarObject *listHead, const RenderTextures::SurfaceWriteView &view )
 {
-
-	// sanity
-	if( listHead == nullptr || texture == nullptr )
+	if (!listHead)
 		return;
 
-	// get surface for texture to render into
-	SurfaceClass *surface = texture->Get_Surface_Level();
-
-	// loop through all objects and draw
-	ICoord2D radarPoint;
-
 	Player *player = rts::getObservedOrLocalPlayer();
-
-	SurfaceClass::SurfaceDescription surfaceDesc;
-	surface->Get_Description(surfaceDesc);
-	int pitch;
-	void *pBits = surface->Lock(&pitch);
-	const unsigned int bytesPerPixel = Get_Bytes_Per_Pixel(surfaceDesc.Format);
+	const Int width = static_cast<Int>(std::min(view.layout.width, unsigned(RADAR_CELL_WIDTH)));
+	const Int height = static_cast<Int>(std::min(view.layout.height, unsigned(RADAR_CELL_HEIGHT)));
 
 	for( const RadarObject *rObj = listHead; rObj; rObj = rObj->friend_getNext() )
 	{
@@ -710,9 +690,11 @@ void W3DRadar::renderObjectList( const RadarObject *listHead, TextureClass *text
 		const Object *obj = rObj->friend_getObject();
 		const Coord3D *pos = obj->getPosition();
 
-		// compute object position as a radar blip
-		radarPoint.x = pos->x / (m_mapExtent.width() / RADAR_CELL_WIDTH);
-		radarPoint.y = pos->y / (m_mapExtent.height() / RADAR_CELL_HEIGHT);
+		// A 2x2 blip can straddle the left or top edge by one pixel.
+		const Int x = pos->x / (m_mapExtent.width() / RADAR_CELL_WIDTH);
+		const Int y = pos->y / (m_mapExtent.height() / RADAR_CELL_HEIGHT);
+		if (x < -1 || y < -1 || x >= width || y >= height)
+			continue;
 
 		// get the color we're going to draw in
 		Color argbColor = rObj->getColor();
@@ -738,29 +720,10 @@ void W3DRadar::renderObjectList( const RadarObject *listHead, TextureClass *text
 
 		}
 
-		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(surfaceDesc.Format, argbColor);
-
-		// draw the blip, but make sure the points are legal
-		if( legalRadarPoint( radarPoint.x, radarPoint.y ) )
-			surface->Draw_Pixel( radarPoint.x, radarPoint.y, pixelColor, bytesPerPixel, pBits, pitch );
-
-		radarPoint.y++;
-		if( legalRadarPoint( radarPoint.x, radarPoint.y ) )
-			surface->Draw_Pixel( radarPoint.x, radarPoint.y, pixelColor, bytesPerPixel, pBits, pitch );
-
-		radarPoint.x++;
-		if( legalRadarPoint( radarPoint.x, radarPoint.y ) )
-			surface->Draw_Pixel( radarPoint.x, radarPoint.y, pixelColor, bytesPerPixel, pBits, pitch );
-
-		radarPoint.y--;
-		if( legalRadarPoint( radarPoint.x, radarPoint.y ) )
-			surface->Draw_Pixel( radarPoint.x, radarPoint.y, pixelColor, bytesPerPixel, pBits, pitch );
-
+		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(view.format, argbColor);
+		RenderTextures::TryFillPixelRect(view, std::max(0, x), std::max(0, y),
+			std::min(x + 1, width - 1), std::min(y + 1, height - 1), pixelColor);
 	}
-
-	surface->Unlock();
-	REF_PTR_RELEASE(surface);
-
 }
 
 //-------------------------------------------------------------------------------------------------
