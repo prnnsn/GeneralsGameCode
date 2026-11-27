@@ -41,6 +41,7 @@
 
 #include "textureloader.h"
 #include "RenderTexture.h"
+#include "Renderer.h"
 #include "WWLib/mutex.h"
 #include "WWLib/thread.h"
 #include "WWDebug/wwdebug.h"
@@ -1209,8 +1210,12 @@ bool TextureLoadTaskClass::Begin_Load()
 		return false;
 	}
 
-	// lock surfaces in preparation for copy
-	Lock_Surfaces();
+	// Lock surfaces in preparation for copy.
+	if (!Lock_Surfaces()) {
+		D3DTexture->Release();
+		D3DTexture = nullptr;
+		return false;
+	}
 
 	State = STATE_LOAD_BEGUN;
 
@@ -1267,8 +1272,13 @@ void TextureLoadTaskClass::End_Load()
 		Release_Packed_DDS();
 	}
 
-	Unlock_Surfaces();
-	Apply(true);
+	if (Unlock_Surfaces()) {
+		Apply(true);
+	} else {
+		D3DTexture->Release();
+		D3DTexture = nullptr;
+		Apply_Missing_Texture();
+	}
 
 	State = STATE_LOAD_COMPLETE;
 }
@@ -1654,40 +1664,19 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 }
 
 
-void TextureLoadTaskClass::Lock_Surfaces()
+bool TextureLoadTaskClass::Lock_Surfaces()
 {
-	MipLevelCount = D3DTexture->GetLevelCount();
-
-	for (unsigned int i = 0; i < MipLevelCount; ++i)
-	{
-		D3DLOCKED_RECT locked_rect;
-		DX8_ErrorCode
-		(
-			Peek_D3D_Texture()->LockRect
-			(
-				i,
-				&locked_rect,
-				nullptr,
-				0
-			)
-		);
-		LockedSurfacePtr[i]		= (unsigned char *)locked_rect.pBits;
-		LockedSurfacePitch[i]	= locked_rect.Pitch;
-	}
+	MipLevelCount = Renderer::Map_Texture_2D_Mips(
+		{ Peek_D3D_Texture() }, LockedSurfacePtr, LockedSurfacePitch, MIP_LEVELS_MAX);
+	return MipLevelCount != 0;
 }
 
 
-void TextureLoadTaskClass::Unlock_Surfaces()
+bool TextureLoadTaskClass::Unlock_Surfaces()
 {
-	for (unsigned int i = 0; i < MipLevelCount; ++i)
-	{
-		if (LockedSurfacePtr[i])
-		{
-			WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
-			DX8_ErrorCode(Peek_D3D_Texture()->UnlockRect(i));
-		}
-		LockedSurfacePtr[i] = nullptr;
-	}
+	if (!Renderer::Unmap_Texture_2D_Mips(
+			{ Peek_D3D_Texture() }, LockedSurfacePtr, LockedSurfacePitch, MipLevelCount))
+		return false;
 
 #ifndef USE_MANAGED_TEXTURES
 	IDirect3DTexture8* tex = DX8Wrapper::_Create_DX8_Texture(Width, Height, Format, Texture->MipLevelCount,D3DPOOL_DEFAULT);
@@ -1697,6 +1686,7 @@ void TextureLoadTaskClass::Unlock_Surfaces()
 	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
 #endif
 
+	return true;
 }
 
 
@@ -2047,7 +2037,7 @@ void CubeTextureLoadTaskClass::Deinit()
 	}
 }
 
-void CubeTextureLoadTaskClass::Lock_Surfaces()
+bool CubeTextureLoadTaskClass::Lock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2069,9 +2059,10 @@ void CubeTextureLoadTaskClass::Lock_Surfaces()
 			LockedCubeSurfacePitch[f][i]= locked_rect.Pitch;
 		}
 	}
+	return true;
 }
 
-void CubeTextureLoadTaskClass::Unlock_Surfaces()
+bool CubeTextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2104,6 +2095,7 @@ void CubeTextureLoadTaskClass::Unlock_Surfaces()
 	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
 #endif
 
+	return true;
 }
 
 
@@ -2365,7 +2357,7 @@ void VolumeTextureLoadTaskClass::Init(TextureBaseClass* tc, TaskType type, Prior
 	}
 }
 
-void VolumeTextureLoadTaskClass::Lock_Surfaces()
+bool VolumeTextureLoadTaskClass::Lock_Surfaces()
 {
 	for (unsigned int i=0; i<MipLevelCount; i++)
 	{
@@ -2384,10 +2376,11 @@ void VolumeTextureLoadTaskClass::Lock_Surfaces()
 		LockedSurfacePitch[i]		= locked_box.RowPitch;
 		LockedSurfaceSlicePitch[i]	= locked_box.SlicePitch;
 	}
+	return true;
 }
 
 
-void VolumeTextureLoadTaskClass::Unlock_Surfaces()
+bool VolumeTextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int i = 0; i < MipLevelCount; ++i)
 	{
@@ -2410,6 +2403,7 @@ void VolumeTextureLoadTaskClass::Unlock_Surfaces()
 	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
 #endif
 
+	return true;
 }
 
 
