@@ -218,6 +218,51 @@ void Renderer::Set_Texture_Border_Color(unsigned stage, unsigned argb)
     DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_BORDERCOLOR, argb);
 }
 
+static DWORD To_D3D_Texture_Filter(Renderer::TextureFilter filter)
+{
+    switch (filter)
+    {
+    case Renderer::TextureFilter::None: return D3DTEXF_NONE;
+    case Renderer::TextureFilter::Point: return D3DTEXF_POINT;
+    case Renderer::TextureFilter::Linear: return D3DTEXF_LINEAR;
+    case Renderer::TextureFilter::Anisotropic: return D3DTEXF_ANISOTROPIC;
+    }
+    WWASSERT(0);
+    return D3DTEXF_POINT;
+}
+
+Renderer::TextureFilterCaps Renderer::Get_Texture_Filter_Caps()
+{
+    const DWORD caps = DX8Wrapper::Get_Current_Caps()->Get_DX8_Caps().TextureFilterCaps;
+    return {
+        (caps & D3DPTFILTERCAPS_MINFLINEAR) != 0,
+        (caps & D3DPTFILTERCAPS_MAGFLINEAR) != 0,
+        (caps & D3DPTFILTERCAPS_MIPFLINEAR) != 0,
+        (caps & D3DPTFILTERCAPS_MINFANISOTROPIC) != 0,
+        (caps & D3DPTFILTERCAPS_MAGFANISOTROPIC) != 0
+    };
+}
+
+void Renderer::Set_Texture_Min_Filter(unsigned stage, TextureFilter filter)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_MINFILTER, To_D3D_Texture_Filter(filter));
+}
+
+void Renderer::Set_Texture_Mag_Filter(unsigned stage, TextureFilter filter)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_MAGFILTER, To_D3D_Texture_Filter(filter));
+}
+
+void Renderer::Set_Texture_Mip_Filter(unsigned stage, TextureFilter filter)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_MIPFILTER, To_D3D_Texture_Filter(filter));
+}
+
+void Renderer::Set_Texture_Max_Anisotropy(unsigned stage, unsigned level)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_MAXANISOTROPY, level);
+}
+
 void Renderer::Set_Material(const VertexMaterialClass * material)
 {
     DX8Wrapper::Set_Material(material);
