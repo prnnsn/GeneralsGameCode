@@ -2880,6 +2880,15 @@ void LocomotorSet::addLocomotor(const LocomotorTemplate* lt)
 //-------------------------------------------------------------------------------------------------
 Locomotor* LocomotorSet::findLocomotor(LocomotorSurfaceTypeMask t)
 {
+	// A zero query cannot match any surface. Most sets have only one entry.
+	if (t == NO_SURFACES || m_locomotors.empty())
+		return nullptr;
+	if (m_locomotors.size() == 1)
+	{
+		Locomotor* loco = m_locomotors.front();
+		return loco && (loco->getLegalSurfaces() & t) ? loco : nullptr;
+	}
+
 	for (LocomotorVector::iterator it = m_locomotors.begin(); it != m_locomotors.end(); ++it)
 	{
 		Locomotor* curLocomotor = *it;
