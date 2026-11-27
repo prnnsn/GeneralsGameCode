@@ -2,7 +2,7 @@
 
 Owner decision: 2026-11-27. Follow [AGENTS.md](../AGENTS.md) and the existing contribution policies.
 This is a planning snapshot, not a claim that untested features work. Refresh main, PRs and profiles before choosing work.
-Baseline main: `f83baba8079d7206527ab313d37c439cc5d6de2e`.
+Baseline main: `f01d1eb38654cdcef3eefbf750f7f1d7ed911d80`.
 C/R = relative engineering complexity / regression risk (1–5), not measurements.
 
 ## Completed and ongoing work
@@ -27,6 +27,8 @@ C/R = relative engineering complexity / regression risk (1–5), not measurement
 | 13b.3c | CPU-owned packed DDS staging; render-thread completion (soft 16 MiB pending threshold) | Merged #97 |
 | 13b.3d | Ordinary 2D all-mip map/unmap through Renderer/DX8, with rollback | Merged #99; task still owns borrowed native resource |
 | 13b.2 documentation | Complete buffer adapter implementation notes | Merged #98 |
+| 13b.3e–f | Regular 2D allocation/handoff and mip surface acquisition/description | Merged #101–102 |
+| 13b.3g–i | Radar mip clear, shroud mapping and object overlay in a single mapping | Merged #103, #105, #107; 288 tests reported per game |
 
 The reports in #30 and #70 do not justify lowering the default quad worker threshold or parallelizing static shadow strips. #75 identifies small dynamic buffer requests as a candidate for optimization after DX11, not a migration prerequisite.
 
@@ -39,10 +41,10 @@ Keep the existing DX8 behavior, state-cache semantics and resource lifetime duri
 | 13a.5 | Typed min/mag/mip filters, anisotropy, capability queries; preserve all legacy fallbacks | 3/2 | #73; merged #83 |
 | 13a.6a | Scoped terrain depth bias backend operation; preserve capability, cache checks and restoration | 2/2 | #23/#29; merged #85 |
 | 13a.7 | Migrate remaining road/scorch buffer binding through existing interface | 2/1 | #72/#74; merged #84 |
-| 13a.6b | Typed depth comparison/write/test and blend states; migrate a narrow shader consumer; preserve immediate vs deferred semantics | 3/3 | 13a.6a |
-| 13a.6c | Stencil, cull, color write mask and alpha test semantics; distinguish direct device calls from cached wrapper state | 4/3 | 13a.6b |
-| 13a.8 | Fixed-function texture-stage combine, arguments, coordinate transforms and sampler restoration | 4/3 | 13a.5, 13a.6b |
-| 13a.9 | Draw strip, buffer-type draw overloads, immediate primitives and remaining draw/state consumers, in independent subsystem slices | 3/3 | 13a.6–8; no silent change to ordering |
+| 13a.6b | Typed depth comparison/write/test and blend states; migrate shader consumer; preserve cached vs immediate semantics | 3/3 | #117 code draft |
+| 13a.6c | Stencil, cull and alpha semantics; both shadow paths; remaining color-mask/global cull follow-ups | 4/3 | #117 code draft; partial consumer migration |
+| 13a.8 | Fixed-function shader texture combine and arguments, including untracked stage 2; remaining coordinate transforms and other consumers | 4/3 | #118 code draft stacked on #117 |
+| 13a.9 | Indexed draw route/strip API and first consumer batch; remaining raw-device and immediate primitives pending | 3/3 | #119 code draft; coordinate Renderer changes |
 | 13a.10 | Inventory remaining DX8 dependencies across both titles/editors; ensure an eventual native backend has no hidden direct device access | 3/2 | Continuous; required before full backend selection |
 
 The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–c and 13a.8–10 remain required where not superseded by later reviewed slices.
@@ -59,36 +61,40 @@ The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–
 
 Implement resource interfaces only after lifetime and format semantics are reviewed. Existing W3D resources are still DX8-backed; forwarding methods alone are not enough.
 
-### 13b.3 — authoritative slice numbering and dependencies
+### 13b.3 — canonical completed numbering and next code slices
 
 | ID | Scope | C/R | Dependency / state |
 | --- | --- | --- | --- |
-| 13b.3a | Checked 2D texture layout | 2/2 | Merged #92 |
-| 13b.3b | Eligible packed DDS loading | 3/3 | Merged #92 |
-| 13b.3c | Owned packed DDS staging and render-thread copy | 3/3 | Merged #97 |
+| 13b.3a–b | Checked 2D layout and eligible packed DDS | 3/3 | Merged #92 |
+| 13b.3c | CPU-owned packed DDS staging; render-thread completion | 3/3 | Merged #97 |
 | 13b.3d | Ordinary all-mip map/unmap and failure rollback | 3/3 | Merged #99 |
-| 13b.3e | Retained single-mip surface access, scoped mapping; not a repeat of #99 | 3/2 | #93 revised draft; depends on #99 |
-| 13b.3f | First terrain atlas update using checked pitch and legacy mip/LOD policy | 3/3 | #94 revised draft; depends on #93 |
-| 13b.3g | Ordinary 2D allocation, ownership, publication and release | 4/3 | #100 draft; depends on #99, coordinate shared interface with #93/#94 |
-| 13b.3h | Remaining 2D CPU staging/upload paths (TGA, tint, conversion, synchronous load where applicable); preserve fallback and queue bounds | 4/3 | Planned, refine after #100 |
-| 13b.3i | Cube/volume descriptors, subresource/face/slice layout, staging, ownership and mapping; preserve format semantics | 4/4 | Planned, separate reviewed slices after 2D contract |
-| 13b.3j | Remaining 2D/surface/texture consumers, partial rects, format/LOD and legacy bridge audit | 4/3 | Planned; coordinate 13b.4/5 |
+| 13b.3e | Regular 2D texture task allocation and handoff | 4/3 | Merged #101 |
+| 13b.3f | Retained mip surface query and descriptions | 3/2 | Merged #102 |
+| 13b.3g | Radar mip clear | 3/2 | Merged #103 |
+| 13b.3h | Single-mip checked map; radar shroud writes | 3/3 | Merged #105 |
+| 13b.3i | Single-mapping radar object overlay | 3/3 | Merged #107 |
+| 13b.3j | Checked pitch-aware terrain atlas | 3/3 | #94 code draft, depends on #105 |
+| 13b.3k | Checked cube face and volume slice CPU layout | 3/2 | #115 code draft |
+| 13b.3l | Remaining 2D CPU staging/ownership and SurfaceClass lock/access paths | 4/3 | Planned; inspect residuals, do not duplicate #101–105 |
+| 13b.3m | Cube/volume actual loaders and native ownership, subresource/face/slice staging | 4/4 | Planned, after #115 |
+| 13b.3n | Remaining 2D/surface consumers, partial rects, format and native escape audit | 4/3 | Planned; coordinate 13b.4/5 |
+| 13b.4a | Logical color/depth/viewport descriptors and checked single-sample footprint | 3/2 | #116 code draft |
 
-#93/#94 were previously numbered 13b.3c/d; those numbers now belong exclusively to merged #97/#99. Existing PR URLs are retained; revised files use e/f. #99 exposes a borrowed RenderTexture2DHandle with void* value; this is transitional and is not the final owning backend-neutral texture contract. #100 must keep compatibility bridges explicit. Do not redo merged work or report all texture paths as migrated.
+Previous documentation briefs #93 (retained surface access) and #100 (ordinary 2D creation/ownership) overlap the merged #101/#102/#105. Do not implement them as originally written; keep only residual requirements in 13b.3l/n. #94 now contains implementation 13b.3j. Preserve canonical numbering of merged PRs. New drafts are AI-assisted internal fork candidates awaiting local review and Win32 validation.
 
 ### Execution lanes and review gates
 
-- Resource lane: #93 -> #94; #100 can be investigated in parallel with #93 and implemented with shared Renderer changes coordinated. Continue 13b.3h–j as contracts stabilize. After 13b.3, split 13b.4 into target/depth ownership and binding, copy/readback and editor preview, reset/recreation and cursor paths. Split 13b.5 into remaining VB/IB, texture/state consumers and native escape audit; confirm both games and editors. Do not declare Phase B complete based on the first consumers alone.
-- Device lane: independent #95 (13c.1) can start immediately. After its device smoke test, 13c.2 may start with isolated buffer tests once the corresponding neutral buffer contract is accepted, then texture/target slices after their respective ownership contracts. Do not select DX11 for live gameplay until required resource/state/shader paths are complete and compatibility gates pass.
-- State lane: 13a.6b/c and 13a.8/9/10 remain open; coordinate with 13d.1/2 rather than duplicating incompatible APIs. Preserve DX8 cached/deferred behavior; use verified neutral semantics for later backend. Only open narrowly scoped implementation requests after reviewing relevant call sites.
-- Baseline validation as reported by #99: both games and both World Builders Win32 Release built, both Google Test suites passed 284 each, mod test confirmed. These are reported PR results, not a fresh integrated-main build or matched network CRC result. Keep DX8 reference executable, test asset provenance and rollback.
-- No automatic merge. Before starting a brief, refresh main and the live PR list. Old branch names may remain to retain existing PR identity; rebase/merge latest main into working branch before implementation and resolve shared declarations.
+- Device: #95 implements an isolated DX11 smoke executable, independent of the game. Review/build/run on Windows hardware and WARP; do not select it in gameplay. After acceptance, 13c.2 buffer slice can use #88 contracts, then texture/target slices after ownership contracts.
+- Resources: #94 uses #105; #115/#116 descriptor-only code is independent. Continue actual resource migrations after local review. Preserve DX8 baseline, W3D identity and all unconverted paths. Split 13b.4 into targets/depth, copy/readback/editor previews, reset/recreation/cursor; then 13b.5 remaining VB/IB, textures and escape audit.
+- States: #117 first, #118 stacked; #119 independent but shared Renderer header/backend need reconciliation. Preserve original call order and cache invalidation. No new visual effects.
+- Host checks: #94 passed 80 isolated atlas combinations; #115 passed 6,285 volume and 198 cube cases; #116 seven depth formats and boundary cases. These are hash-verified host harnesses, descriptor harness uses minimal format stubs. Not game builds or native GPU tests. #117–119 static-only; #95 Windows build/runtime pending. Main #107 reported four successful builds, 288 tests per game and game checks, not integrated-candidate results or CRC.
+- Refresh current main before applying; merge nothing automatically. #71/#75 remain deferred.
 
 ## Phase C — actual DX11 backend
 
 | ID | Scope and acceptance | C/R |
 | --- | --- | --- |
-| 13c.1 | Isolated Windows DX11 device/context/swap-chain bring-up and test target; select feature levels, depth format, resize/cleanup/failure handling; keep shipping DX8 untouched | 3/3 |
+| 13c.1 | Isolated Windows DX11 device/context/swap-chain smoke; hardware/WARP, depth, readback, resize/minimize/restore | 3/3 |
 | 13c.2 | Implement neutral resource descriptors in DX11, buffer Map/Unmap and texture/surface lifetime; validate uploads and reset paths | 4/4 |
 | 13d.1 | Translate fixed-function vertex formats, transforms, lights, fog, material and alpha/texture-stage semantics into shaders | 5/4 |
 | 13d.2 | DX11 depth/stencil, rasterizer, blend and sampler states; cache by full descriptors, preserve legacy pass order | 4/4 |
@@ -96,7 +102,7 @@ Implement resource interfaces only after lifetime and format semantics are revie
 | 13e.2 | Explicit backend selection/build integration, fallback or clear startup error, resize/fullscreen, device removal, legacy asset tests | 4/4 |
 | 13e.3 | Compatibility and performance gate: both game/editor variants, replay/save/network CRC and RNG, matching screenshots, frame-time/CPU/GPU captures, and stable extended zoom | 4/4 |
 
-A standalone device test is not a playable backend. Avoid promising DX11 FPS improvements or feature parity before 13e.3. Do not ship a partially migrated backend as the default. DX11 work may use Reforged as a reference, but its D3D9-era semantics and resource paths need explicit adaptation to our DX8 baseline. Check source/license and attribute any borrowed code.
+#95 contains the standalone 13c.1 code candidate; Windows compilation and device tests are pending. A standalone device test is not a playable backend. Avoid promising DX11 FPS improvements or feature parity before 13e.3. Do not ship a partially migrated backend as the default. DX11 work may use Reforged as a reference, but its D3D9-era semantics and resource paths need explicit adaptation to our DX8 baseline. Check source/license and attribute any borrowed code.
 
 ## Deferred optimization backlog — after stable DX11 and new profiles
 
