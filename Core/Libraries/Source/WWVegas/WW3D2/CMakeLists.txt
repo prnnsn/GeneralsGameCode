@@ -36,6 +36,7 @@ set(WW3D2_SRC
     #dazzle.h
     #ddsfile.cpp
     #ddsfile.h
+    ddsfilepacked.cpp
     #decalmsh.cpp
     #decalmsh.h
     decalsys.cpp

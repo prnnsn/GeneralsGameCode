@@ -100,6 +100,33 @@ TEST(RenderTexture, RejectsUnknownFormatsInvalidMipChainsAndOverflow)
     EXPECT_EQ(1u, mip.row_bytes);
 }
 
+TEST(RenderTexture, PackedDdsOffsetsIncludeSkippedAndDiscardedLevels)
+{
+    const Texture2DDesc desc = { 8, 64, 7, WW3D_FORMAT_DXT1 };
+    const std::uint32_t offsets[] = { 0, 256, 320, 352, 368, 376, 384 };
+    PackedMipChain chain = {};
+    ASSERT_TRUE(TryPackedDDSMips(desc, 392, chain));
+    for (unsigned level = 0; level < desc.mip_levels; ++level)
+        EXPECT_EQ(offsets[level], chain[level].offset) << level;
+    EXPECT_EQ(8u, chain[2].layout.row_bytes);
+    EXPECT_EQ(4u, chain[2].layout.row_count);
+}
+
+TEST(RenderTexture, PackedDdsRequiresExactlyTheStoredChain)
+{
+    const Texture2DDesc desc = { 256, 255, 9, WW3D_FORMAT_DXT5 };
+    PackedMipChain chain = {};
+    ASSERT_TRUE(TryPackedDDSMips(desc, 87408, chain));
+    EXPECT_EQ(81920u, chain[2].offset);
+    EXPECT_EQ(87360u, chain[6].offset);
+    EXPECT_FALSE(TryPackedDDSMips(desc, 87407, chain));
+    EXPECT_FALSE(TryPackedDDSMips(desc, 87409, chain));
+    EXPECT_FALSE(TryPackedDDSMips({ 4, 4, 4, WW3D_FORMAT_DXT1 }, 32, chain));
+    EXPECT_FALSE(TryPackedDDSMips({ 4, 4, 1, WW3D_FORMAT_L8 }, 16, chain));
+    EXPECT_FALSE(TryPackedDDSMips({ 65536, 65536, 17, WW3D_FORMAT_DXT5 }, UINT32_MAX, chain));
+    EXPECT_EQ(87360u, chain[6].offset);
+}
+
 TEST(RenderTexture, PaddedRowsUseOnlyRequiredBytes)
 {
     MipLayout mip = {};

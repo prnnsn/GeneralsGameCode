@@ -60,6 +60,35 @@ bool TryMipLayout(const Texture2DDesc & desc, unsigned level, MipLayout & out)
     return true;
 }
 
+bool TryPackedDDSMips(const Texture2DDesc & desc, std::uint32_t payload_bytes,
+                      PackedMipChain & out)
+{
+    FormatLayout format;
+    if (!TryFormatLayout(desc.format, format) || format.block_width != 4 ||
+        !desc.mip_levels || desc.mip_levels > out.size())
+        return false;
+
+    PackedMipChain chain = {};
+    std::uint64_t offset = 0;
+    for (unsigned level = 0; level < desc.mip_levels; ++level)
+    {
+        MipLayout mip;
+        if (!TryMipLayout(desc, level, mip))
+            return false;
+
+        chain[level] = { mip, static_cast<std::uint32_t>(offset) };
+        offset += std::uint64_t(mip.row_bytes) * mip.row_count;
+        if (offset > payload_bytes)
+            return false;
+    }
+
+    if (offset != payload_bytes)
+        return false;
+
+    out = chain;
+    return true;
+}
+
 bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch, std::uint32_t available_bytes,
                 std::uint32_t & out)
 {
