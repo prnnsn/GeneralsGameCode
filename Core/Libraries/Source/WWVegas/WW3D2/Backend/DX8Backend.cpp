@@ -23,6 +23,7 @@
 #include "WW3D2/Renderer.h"
 
 #include "WW3D2/Backend/DX8ManagedBufferWrite.h"
+#include "WW3D2/Backend/DX8StreamingBufferWrite.h"
 #include "WW3D2/Backend/DX8VertexLayout.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
@@ -369,6 +370,54 @@ IndexBufferClass * Renderer::Create_Rewritable_Index_Buffer(const RenderBuffers:
     if (!buffer->Get_DX8_Index_Buffer())
         REF_PTR_RELEASE(buffer);
     return buffer;
+}
+
+bool Renderer::Upload_Dynamic_Vertices(DynamicVBAccessClass & access, const void * source, unsigned stride)
+{
+    auto * buffer = access.VertexBuffer;
+    if (access.Type != BUFFER_TYPE_DYNAMIC_DX8 || !buffer || !DX8Wrapper::_Get_D3D_Device8() ||
+        !source || stride != buffer->FVF_Info().Get_FVF_Size())
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    auto * native = static_cast<DX8VertexBufferClass *>(buffer)->Get_DX8_Vertex_Buffer();
+    const bool uploaded = DX8StreamingBufferWrite::Upload(native, buffer->Get_Vertex_Count(), stride,
+        access.VertexBufferOffset, access.VertexCount, source, D3DLOCK_NOSYSLOCK);
+    if (!uploaded)
+        access.Retire_DX8_Buffer();
+    return uploaded;
+}
+
+bool Renderer::Upload_Dynamic_Indices(DynamicIBAccessClass & access, const unsigned short * source)
+{
+    auto * buffer = access.IndexBuffer;
+    if (access.Type != BUFFER_TYPE_DYNAMIC_DX8 || !buffer || !DX8Wrapper::_Get_D3D_Device8() || !source)
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    auto * native = static_cast<DX8IndexBufferClass *>(buffer)->Get_DX8_Index_Buffer();
+    buffer->Add_Ref();
+    const bool uploaded = DX8StreamingBufferWrite::Upload(native, buffer->Get_Index_Count(), sizeof(WORD),
+        access.IndexBufferOffset, access.IndexCount, source, 0);
+    if (!uploaded)
+        access.Retire_DX8_Buffer();
+    buffer->Release_Ref();
+    return uploaded;
+}
+
+bool Renderer::Bind_Dynamic_Triangle_List(const DynamicVBAccessClass & vertices, const DynamicIBAccessClass & indices)
+{
+    if (vertices.Type != BUFFER_TYPE_DYNAMIC_DX8 || indices.Type != BUFFER_TYPE_DYNAMIC_DX8 ||
+        !vertices.VertexBuffer || !indices.IndexBuffer || indices.IndexCount % 3 != 0)
+        return false;
+    RenderBuffers::DrawOffsets offsets;
+    if (!RenderBuffers::TryDrawOffsets(vertices.VertexBufferOffset, 0, indices.IndexBufferOffset, 0, offsets) ||
+        !RenderBuffers::ValidIndexedDraw(offsets, RenderBuffers::Topology::TriangleList, indices.IndexCount / 3,
+            indices.IndexBuffer->Get_Index_Count(), 0, vertices.VertexCount, vertices.VertexBuffer->Get_Vertex_Count()))
+        return false;
+    Set_Index_Buffer(indices, 0);
+    Set_Vertex_Buffer(vertices);
+    return true;
 }
 
 Renderer::BufferWrite::BufferWrite(VertexBufferClass * buffer, unsigned first, unsigned count)

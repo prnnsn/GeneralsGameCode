@@ -129,6 +129,7 @@ class DynamicVBAccessClass
 {
 	friend DX8Wrapper;
 	friend SortingRendererClass;
+	friend class Renderer;
 
 	const FVFInfoClass& FVFInfo;
 	unsigned Type;
@@ -138,7 +139,8 @@ class DynamicVBAccessClass
 //	static VertexFormatXYZNDUV2* _Get_Sorting_Vertex_Array();
 
 	void Allocate_Sorting_Dynamic_Buffer();
-	void Allocate_DX8_Dynamic_Buffer();
+	void Allocate_DX8_Dynamic_Buffer(bool assert_on_failure = true);
+	void Retire_DX8_Buffer();
 public:
 	// Type parameter can be either BUFFER_TYPE_DYNAMIC_DX8 or BUFFER_TYPE_DYNAMIC_SORTING.
 
@@ -146,6 +148,8 @@ public:
 	// only acceptable parameter is "dynamic_fvf_type". Any other type will
 	// result to an assert.
 	DynamicVBAccessClass(unsigned type,unsigned fvf,unsigned short vertex_count);
+	// Checked GPU reservation with the existing dynamic layout.
+	explicit DynamicVBAccessClass(unsigned short vertex_count);
 	~DynamicVBAccessClass();
 
 	// Access fvf

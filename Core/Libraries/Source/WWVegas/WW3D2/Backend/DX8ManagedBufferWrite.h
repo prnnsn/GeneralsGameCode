@@ -17,6 +17,24 @@ bool Unlock(NativeBuffer & buffer)
 }
 
 template <typename NativeBuffer>
+unsigned char * Lock_Native(NativeBuffer & buffer, unsigned offset, unsigned length, unsigned flags)
+{
+    unsigned char * data = nullptr;
+    const HRESULT result = buffer.Lock(offset, length, &data, flags);
+    if (FAILED(result))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+        return nullptr;
+    }
+    if (!data)
+    {
+        Unlock(buffer);
+        Non_Fatal_Log_DX8_ErrorCode(E_FAIL, __FILE__, __LINE__);
+    }
+    return data;
+}
+
+template <typename NativeBuffer>
 unsigned char * Lock(NativeBuffer * buffer, unsigned capacity, unsigned stride,
                      unsigned first, unsigned count, bool legacy_whole_lock)
 {
@@ -27,18 +45,6 @@ unsigned char * Lock(NativeBuffer * buffer, unsigned capacity, unsigned stride,
     // DX8 used a zero byte count to lock the entire vertex allocation.
     // Only use it for a verified full span. Index locks retain explicit sizes.
     const bool whole = legacy_whole_lock && first == 0 && count == capacity;
-    unsigned char * data = nullptr;
-    const HRESULT result = buffer->Lock(range.offset, whole ? 0 : range.length, &data, 0);
-    if (FAILED(result))
-    {
-        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
-        return nullptr;
-    }
-    if (!data)
-    {
-        Unlock(*buffer);
-        Non_Fatal_Log_DX8_ErrorCode(E_FAIL, __FILE__, __LINE__);
-    }
-    return data;
+    return Lock_Native(*buffer, range.offset, whole ? 0 : range.length, 0);
 }
 }

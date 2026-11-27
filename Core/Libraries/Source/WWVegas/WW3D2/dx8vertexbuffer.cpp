@@ -745,13 +745,24 @@ DynamicVBAccessClass::DynamicVBAccessClass(unsigned t,unsigned fvf,unsigned shor
 	}
 }
 
+DynamicVBAccessClass::DynamicVBAccessClass(unsigned short vertex_count)
+	: FVFInfo(_DynamicFVFInfo), Type(BUFFER_TYPE_INVALID), VertexCount(vertex_count),
+	  VertexBufferOffset(0), VertexBuffer(nullptr)
+{
+	DX8_THREAD_ASSERT();
+	if (!vertex_count || _DynamicDX8VertexBufferInUse || !DX8Wrapper::_Get_D3D_Device8())
+		return;
+	Type = BUFFER_TYPE_DYNAMIC_DX8;
+	Allocate_DX8_Dynamic_Buffer(false);
+}
+
 DynamicVBAccessClass::~DynamicVBAccessClass()
 {
 	if (Type==BUFFER_TYPE_DYNAMIC_DX8) {
 		_DynamicDX8VertexBufferInUse=false;
 		_DynamicDX8VertexBufferOffset+=(unsigned) VertexCount;
 	}
-	else {
+	else if (Type == BUFFER_TYPE_DYNAMIC_SORTING) {
 		_DynamicSortingVertexArrayInUse=false;
 		_DynamicSortingVertexArrayOffset+=VertexCount;
 	}
@@ -779,7 +790,7 @@ void DynamicVBAccessClass::_Deinit()
 	_DynamicSortingVertexArrayOffset=0;
 }
 
-void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer()
+void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer(bool assert_on_failure)
 {
 	WWMEMLOG(MEM_RENDERER);
 	WWASSERT(!_DynamicDX8VertexBufferInUse);
@@ -803,8 +814,16 @@ void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer()
 		_DynamicDX8VertexBuffer=NEW_REF(DX8VertexBufferClass,(
 			dynamic_fvf_type,
 			_DynamicDX8VertexBufferSize,
-			(DX8VertexBufferClass::UsageType)usage));
+			(DX8VertexBufferClass::UsageType)usage, assert_on_failure));
 		_DynamicDX8VertexBufferOffset=0;
+	}
+
+	if (!assert_on_failure && !_DynamicDX8VertexBuffer->Get_DX8_Vertex_Buffer())
+	{
+		REF_PTR_RELEASE(_DynamicDX8VertexBuffer);
+		_DynamicDX8VertexBufferInUse = false;
+		Type = BUFFER_TYPE_INVALID;
+		return;
 	}
 
 	// Any room at the end of the buffer?
@@ -814,6 +833,12 @@ void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer()
 
 	REF_PTR_SET(VertexBuffer,_DynamicDX8VertexBuffer);
 	VertexBufferOffset=_DynamicDX8VertexBufferOffset;
+}
+
+void DynamicVBAccessClass::Retire_DX8_Buffer()
+{
+	if (VertexBuffer == _DynamicDX8VertexBuffer)
+		REF_PTR_RELEASE(_DynamicDX8VertexBuffer);
 }
 
 void DynamicVBAccessClass::Allocate_Sorting_Dynamic_Buffer()

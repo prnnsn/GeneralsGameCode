@@ -10,6 +10,7 @@ set(COREI_GOOGLETEST_SRC
     GameEngineDevice/StdDevice/Common/StdLocalFileSystemTest.cpp
     Libraries/Compression/CompressionManagerTest.cpp
     Libraries/WWVegas/WW3D2/DX8ManagedBufferWriteTest.cpp
+    Libraries/WWVegas/WW3D2/DX8StreamingBufferWriteTest.cpp
     Libraries/WWVegas/WW3D2/DX8VertexLayoutTest.cpp
     Libraries/WWVegas/WW3D2/RenderBufferTest.cpp
     Libraries/WWVegas/WW3D2/TextureAtlasTest.cpp

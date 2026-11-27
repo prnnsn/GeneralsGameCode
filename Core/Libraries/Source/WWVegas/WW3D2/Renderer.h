@@ -133,6 +133,11 @@ public:
     // The returned W3D object owns one reference. Use the usual Release_Ref.
     static VertexBufferClass * Create_Rewritable_Vertex_Buffer(const RenderBuffers::BufferDesc & desc);
     static IndexBufferClass * Create_Rewritable_Index_Buffer(const RenderBuffers::BufferDesc & desc);
+    static bool Upload_Dynamic_Vertices(DynamicVBAccessClass & access, const void * source, unsigned stride);
+    static bool Upload_Dynamic_Indices(DynamicIBAccessClass & access, const unsigned short * source);
+    // Bind the validated span after both uploads have succeeded.
+    static bool Bind_Dynamic_Triangle_List(const DynamicVBAccessClass & vertices,
+                                           const DynamicIBAccessClass & indices);
 
     class BufferWrite
     {
