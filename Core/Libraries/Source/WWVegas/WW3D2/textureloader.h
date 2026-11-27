@@ -41,6 +41,7 @@
 
 #include "WWLib/always.h"
 #include "texture.h"
+#include "Renderer.h"
 
 class StringClass;
 struct IDirect3DTexture8;
@@ -226,7 +227,6 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 		unsigned int			Get_Locked_Surface_Pitch(unsigned int level) const;
 
 		TextureBaseClass *	Peek_Texture				()				{ return Texture;			}
-		IDirect3DTexture8	*	Peek_D3D_Texture			()				{ return (IDirect3DTexture8*)D3DTexture;		}
 
 		void						Set_Type						(TaskType t)		{ Type		= t;			}
 		void						Set_Priority				(PriorityType p)	{ Priority	= p;			}
@@ -269,6 +269,7 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 
 	private:
 		void Release_Packed_DDS();
+		RenderTexture2DHandle LoadTexture2D;
 		std::unique_ptr<RenderTextures::PackedDDSData> PackedDDS;
 };
 

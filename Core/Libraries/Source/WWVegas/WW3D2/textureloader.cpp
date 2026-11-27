@@ -41,7 +41,6 @@
 
 #include "textureloader.h"
 #include "RenderTexture.h"
-#include "Renderer.h"
 #include "WWLib/mutex.h"
 #include "WWLib/thread.h"
 #include "WWDebug/wwdebug.h"
@@ -1163,7 +1162,7 @@ void TextureLoadTaskClass::Deinit()
 	WWASSERT(Next == nullptr);
 	WWASSERT(Prev == nullptr);
 
-	WWASSERT(D3DTexture == nullptr);
+	WWASSERT(!LoadTexture2D && D3DTexture == nullptr);
 
 	for (int i = 0; i < MIP_LEVELS_MAX; ++i) {
 		WWASSERT(LockedSurfacePtr[i] == nullptr);
@@ -1212,8 +1211,7 @@ bool TextureLoadTaskClass::Begin_Load()
 
 	// Lock surfaces in preparation for copy.
 	if (!Lock_Surfaces()) {
-		D3DTexture->Release();
-		D3DTexture = nullptr;
+		Renderer::Release_Texture_2D(LoadTexture2D);
 		return false;
 	}
 
@@ -1233,7 +1231,7 @@ bool TextureLoadTaskClass::Begin_Load()
 bool TextureLoadTaskClass::Load()
 {
 	WWMEMLOG(MEM_TEXTURE);
-	WWASSERT(Peek_D3D_Texture());
+	WWASSERT(LoadTexture2D || D3DTexture);
 
 	bool loaded = false;
 
@@ -1275,8 +1273,7 @@ void TextureLoadTaskClass::End_Load()
 	if (Unlock_Surfaces()) {
 		Apply(true);
 	} else {
-		D3DTexture->Release();
-		D3DTexture = nullptr;
+		Renderer::Release_Texture_2D(LoadTexture2D);
 		Apply_Missing_Texture();
 	}
 
@@ -1313,7 +1310,7 @@ void TextureLoadTaskClass::Finish_Load()
 void TextureLoadTaskClass::Apply_Missing_Texture()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
-	WWASSERT(!D3DTexture);
+	WWASSERT(!LoadTexture2D && !D3DTexture);
 
 	D3DTexture = MissingTexture::_Get_Missing_Texture();
 	Apply(true);
@@ -1322,11 +1319,16 @@ void TextureLoadTaskClass::Apply_Missing_Texture()
 
 void TextureLoadTaskClass::Apply(bool initialize)
 {
-	WWASSERT(D3DTexture);
+	WWASSERT(static_cast<bool>(LoadTexture2D) != (D3DTexture != nullptr));
 
 	// Verify that none of the mip levels are locked
 	for (unsigned i=0;i<MipLevelCount;++i) {
 		WWASSERT(LockedSurfacePtr[i]==nullptr);
+	}
+
+	if (LoadTexture2D) {
+		Renderer::Apply_Load_Texture_2D(*Texture, LoadTexture2D, initialize);
+		return;
 	}
 
 	Texture->Apply_New_Surface(D3DTexture, initialize);
@@ -1577,21 +1579,8 @@ bool TextureLoadTaskClass::Begin_Compressed_Load()
 
 	Apply_Mip_Reduction(MipLevelCount, Reduction, Width, Height, orig_mip_count);
 
-	D3DTexture	= DX8Wrapper::_Create_DX8_Texture
-	(
-		Width,
-		Height,
-		Format,
-		(MipCountType)MipLevelCount,
-#ifdef USE_MANAGED_TEXTURES
-		D3DPOOL_MANAGED
-#else
-		D3DPOOL_SYSTEMMEM
-#endif
-	);
-
-	// Texture creation can fail, e.g. when out of memory
-	return D3DTexture != nullptr;
+	LoadTexture2D = Renderer::Create_Load_Texture_2D(Width, Height, Format, MipLevelCount);
+	return static_cast<bool>(LoadTexture2D);
 }
 
 bool TextureLoadTaskClass::Begin_Uncompressed_Load()
@@ -1647,46 +1636,24 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 		Format = Get_Valid_Texture_Format(Format, false);
 	}
 
-	D3DTexture = DX8Wrapper::_Create_DX8_Texture
-	(
-		Width,
-		Height,
-		Format,
-		Texture->MipLevelCount,
-#ifdef USE_MANAGED_TEXTURES
-		D3DPOOL_MANAGED
-#else
-		D3DPOOL_SYSTEMMEM
-#endif
-	);
-
-	return D3DTexture != nullptr;
+	LoadTexture2D = Renderer::Create_Load_Texture_2D(
+		Width, Height, Format, Texture->MipLevelCount);
+	return static_cast<bool>(LoadTexture2D);
 }
 
 
 bool TextureLoadTaskClass::Lock_Surfaces()
 {
 	MipLevelCount = Renderer::Map_Texture_2D_Mips(
-		{ Peek_D3D_Texture() }, LockedSurfacePtr, LockedSurfacePitch, MIP_LEVELS_MAX);
+		LoadTexture2D, LockedSurfacePtr, LockedSurfacePitch, MIP_LEVELS_MAX);
 	return MipLevelCount != 0;
 }
 
 
 bool TextureLoadTaskClass::Unlock_Surfaces()
 {
-	if (!Renderer::Unmap_Texture_2D_Mips(
-			{ Peek_D3D_Texture() }, LockedSurfacePtr, LockedSurfacePitch, MipLevelCount))
-		return false;
-
-#ifndef USE_MANAGED_TEXTURES
-	IDirect3DTexture8* tex = DX8Wrapper::_Create_DX8_Texture(Width, Height, Format, Texture->MipLevelCount,D3DPOOL_DEFAULT);
-	DX8CALL(UpdateTexture(Peek_D3D_Texture(),tex));
-	Peek_D3D_Texture()->Release();
-	D3DTexture=tex;
-	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
-#endif
-
-	return true;
+	return Renderer::Unmap_Texture_2D_Mips(
+		LoadTexture2D, LockedSurfacePtr, LockedSurfacePitch, MipLevelCount);
 }
 
 
