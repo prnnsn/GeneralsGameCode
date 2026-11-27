@@ -28,6 +28,7 @@
 #include "WW3D2/Backend/DX8VertexLayout.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
+#include "WW3D2/texture.h"
 #include "WWMath/vector3.h"
 #include "WWLib/thread.h"
 #include "WW3D2/lightenvironment.h"
@@ -192,6 +193,33 @@ void Renderer::Set_Shader(const ShaderClass & shader)
 void Renderer::Set_Texture(unsigned stage, TextureBaseClass * texture)
 {
     DX8Wrapper::Set_Texture(stage, texture);
+}
+
+RenderTexture2DHandle Renderer::Create_Load_Texture_2D(unsigned width, unsigned height,
+                                                       WW3DFormat format, unsigned mip_levels)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    return { DX8Wrapper::_Create_DX8_Texture(width, height, format,
+                                            static_cast<MipCountType>(mip_levels), D3DPOOL_MANAGED) };
+}
+
+void Renderer::Release_Texture_2D(RenderTexture2DHandle & texture)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    if (auto * native = static_cast<IDirect3DTexture8 *>(texture.value))
+    {
+        native->Release();
+        texture = {};
+    }
+}
+
+void Renderer::Apply_Load_Texture_2D(TextureBaseClass & target, RenderTexture2DHandle & texture,
+                                     bool initialize)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    WWASSERT(texture && target.Get_Asset_Type() == TextureBaseClass::TEX_REGULAR);
+    target.Apply_New_Surface(static_cast<IDirect3DTexture8 *>(texture.value), initialize);
+    Release_Texture_2D(texture);
 }
 
 unsigned Renderer::Map_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,

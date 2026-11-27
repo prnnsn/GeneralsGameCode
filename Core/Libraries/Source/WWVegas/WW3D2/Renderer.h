@@ -43,10 +43,13 @@ class DynamicIBAccessClass;
 class RefCountClass;
 namespace RenderBuffers { struct BufferDesc; }
 
-// Borrowed 2D resource. The caller retains ownership until the mapping has ended.
+// A backend texture reference. Mapping borrows it, while creation returns one
+// reference that the caller must publish or release.
 struct RenderTexture2DHandle
 {
-    void * value;
+    void * value = nullptr;
+
+    explicit operator bool() const { return value != nullptr; }
 };
 
 struct RenderViewport
@@ -104,6 +107,15 @@ public:
     // Buffer allocation/binding and texture sampler policy remain separate.
     static void Set_Shader(const ShaderClass & shader);
     static void Set_Texture(unsigned stage, TextureBaseClass * texture);
+
+    // An ordinary sampled texture for the loader. Zero mip levels requests the
+    // full chain, preserving the W3D loader's convention.
+    static RenderTexture2DHandle Create_Load_Texture_2D(unsigned width, unsigned height,
+                                                        WW3DFormat format, unsigned mip_levels);
+    static void Release_Texture_2D(RenderTexture2DHandle & texture);
+    // The target retains its reference and this consumes the loader's reference.
+    static void Apply_Load_Texture_2D(TextureBaseClass & target, RenderTexture2DHandle & texture,
+                                      bool initialize);
 
     // Map all levels or release any partial mapping and return zero.
     // Both arrays must have capacity entries. Call Unmap on the render thread
