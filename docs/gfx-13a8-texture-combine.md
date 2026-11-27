@@ -1,0 +1,3 @@
+# GFX 13a.8 — shader texture combine seam
+
+Follow #117. Maps shader combine operations and arguments to typed backend operations; preserves legacy capability branches (including the existing MODULATE2X test), cached stages 0/1 and untracked stage 2 with DX8CALL. Do not change shader behavior, unsupported-stage policy, or combine order. Coordinate transforms and other callers remain future slices. Local review: compare exact calls and counters for all shader presets, coloring, Voodoo branch and disabled stages; build both titles/editors and exercise shaders. No engine build or visual tests performed.
