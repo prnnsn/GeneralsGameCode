@@ -342,7 +342,20 @@ Bool StealthUpdate::allowedToStealth( Object *stealthOwner ) const
 	//Do a quick preliminary test to see if we are restricted by firing particular weapons and we fired a shot last frame or this frame.
 	if( flags & STEALTH_NOT_WHILE_FIRING_WEAPON && self->getStatusBits().test( OBJECT_STATUS_IS_FIRING_WEAPON ) )
 	{
-		if( (flags & STEALTH_NOT_WHILE_FIRING_WEAPON) == STEALTH_NOT_WHILE_FIRING_WEAPON )
+		// Retain the legacy all-weapon fast path for objects using only A-C.
+		const UnsignedInt legacyFiringFlags = STEALTH_NOT_WHILE_FIRING_PRIMARY |
+			STEALTH_NOT_WHILE_FIRING_SECONDARY | STEALTH_NOT_WHILE_FIRING_TERTIARY;
+		Bool hasExtendedWeapon = FALSE;
+		for (Int i = WEAPON_FOUR; i < WEAPONSLOT_COUNT; ++i)
+		{
+			if (self->getWeaponInWeaponSlot((WeaponSlotType)i))
+			{
+				hasExtendedWeapon = TRUE;
+				break;
+			}
+		}
+		if( (flags & STEALTH_NOT_WHILE_FIRING_WEAPON) == STEALTH_NOT_WHILE_FIRING_WEAPON ||
+			(!hasExtendedWeapon && (flags & legacyFiringFlags) == legacyFiringFlags) )
 		{
 			//Not allowed to stealth while firing ANY weapon!
 			return FALSE;
@@ -378,6 +391,36 @@ Bool StealthUpdate::allowedToStealth( Object *stealthOwner ) const
 			{
 				return FALSE;
 			}
+		}
+		if( flags & STEALTH_NOT_WHILE_FIRING_FOUR )
+		{
+			weapon = self->getWeaponInWeaponSlot( WEAPON_FOUR );
+			if( weapon && weapon->getLastShotFrame() >= lastFrame )
+				return FALSE;
+		}
+		if( flags & STEALTH_NOT_WHILE_FIRING_FIVE )
+		{
+			weapon = self->getWeaponInWeaponSlot( WEAPON_FIVE );
+			if( weapon && weapon->getLastShotFrame() >= lastFrame )
+				return FALSE;
+		}
+		if( flags & STEALTH_NOT_WHILE_FIRING_SIX )
+		{
+			weapon = self->getWeaponInWeaponSlot( WEAPON_SIX );
+			if( weapon && weapon->getLastShotFrame() >= lastFrame )
+				return FALSE;
+		}
+		if( flags & STEALTH_NOT_WHILE_FIRING_SEVEN )
+		{
+			weapon = self->getWeaponInWeaponSlot( WEAPON_SEVEN );
+			if( weapon && weapon->getLastShotFrame() >= lastFrame )
+				return FALSE;
+		}
+		if( flags & STEALTH_NOT_WHILE_FIRING_EIGHT )
+		{
+			weapon = self->getWeaponInWeaponSlot( WEAPON_EIGHT );
+			if( weapon && weapon->getLastShotFrame() >= lastFrame )
+				return FALSE;
 		}
 	}
 

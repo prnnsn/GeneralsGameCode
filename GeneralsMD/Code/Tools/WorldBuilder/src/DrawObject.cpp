@@ -1783,7 +1783,7 @@ void DrawObject::updateVBWithWeaponRange(MapObject *pMapObj, CameraClass* camera
 		return;
 	}
 
-  const unsigned long colors[] = {0xFF00FF00, 0xFFE0F00A, 0xFFFF0000}; // Green, Yellow, Red
+  const unsigned long colors[] = {0xFF00FF00, 0xFFE0F00A, 0xFFFF0000, 0xFF0000FF, 0xFF00FFFF, 0xFFFF00FF, 0xFFFF8000, 0xFFFFFFFF}; // Preserve A-C colors
   static_assert(ARRAY_SIZE(colors) == WEAPONSLOT_COUNT, "Incorrect array size");
 
 

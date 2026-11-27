@@ -4015,7 +4015,11 @@ void W3DModelDraw::xfer( Xfer *xfer )
 {
 
 	// version
+#if RTS_GENERALS
 	const XferVersion currentVersion = 2;
+#else
+	const XferVersion currentVersion = 3; // Expanded weapon recoil vectors.
+#endif
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -4025,7 +4029,13 @@ void W3DModelDraw::xfer( Xfer *xfer )
 	// weapon recoil info vectors
 	UnsignedByte recoilInfoCount;
 	WeaponRecoilInfo weaponRecoilInfo;
-	for( Int i = 0; i < WEAPONSLOT_COUNT; ++i )
+	const Int serializedSlotCount = version >= 3 ? WEAPONSLOT_COUNT : 3;
+	if (xfer->getXferMode() == XFER_LOAD)
+	{
+		for (Int i = serializedSlotCount; i < WEAPONSLOT_COUNT; ++i)
+			m_weaponRecoilInfoVec[i].clear();
+	}
+	for( Int i = 0; i < serializedSlotCount; ++i )
 	{
 
 		// count of data here
@@ -4268,7 +4278,11 @@ void W3DModelDrawModuleData::xfer( Xfer *x )
 {
 
 	// version
+#if RTS_GENERALS
 	const XferVersion currentVersion = 1;
+#else
+	const XferVersion currentVersion = 2; // Expanded weapon barrel cache.
+#endif
 	XferVersion version = currentVersion;
 	x->xferVersion( &version, currentVersion );
 
@@ -4293,7 +4307,8 @@ void W3DModelDrawModuleData::xfer( Xfer *x )
 				x->xferInt(&(info->m_turrets[i].m_turretAngleBone));
 				x->xferInt(&(info->m_turrets[i].m_turretPitchBone));
 			}
-			for (i=0; i<WEAPONSLOT_COUNT; ++i)
+			const Int serializedSlotCount = version >= 2 ? WEAPONSLOT_COUNT : 3;
+			for (i=0; i<serializedSlotCount; ++i)
 			{
 				for (ModelConditionInfo::WeaponBarrelInfoVec::iterator wit = info->m_weaponBarrelInfoVec[i].begin(); wit != info->m_weaponBarrelInfoVec[i].end(); ++wit)
 				{

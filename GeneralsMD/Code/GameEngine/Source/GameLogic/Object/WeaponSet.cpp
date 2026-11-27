@@ -209,12 +209,15 @@ void WeaponSet::crc( Xfer *xfer )
 	* 2: TheSuperHackers @tweak Upgrade damage type flags from integer to BitFlags for Generals.
 	*    Zero Hour already had this at version 1.
 	* 3: TheSuperHackers @bugfix bobtista 14/08/2026 Now serialize m_hasPitchLimit instead of m_hasDamageWeapon twice
+	* 4: Zero Hour expanded weapon slots; earlier snapshots store three slots.
 	*/
 // ------------------------------------------------------------------------------------------------
 void WeaponSet::xfer( Xfer *xfer )
 {
 	// version
-#if RETAIL_COMPATIBLE_XFER_SAVE
+#if !RTS_GENERALS
+	const XferVersion currentVersion = 4; // Expanded weapon slot snapshot.
+#elif RETAIL_COMPATIBLE_XFER_SAVE
 	const XferVersion currentVersion = 1;
 #else
 	const XferVersion currentVersion = 3;
@@ -265,7 +268,16 @@ void WeaponSet::xfer( Xfer *xfer )
 		wsFlags.xfer( xfer );
 	}
 
-	for (Int i = 0; i < WEAPONSLOT_COUNT; ++i)
+	const Int serializedSlotCount = version >= 4 ? WEAPONSLOT_COUNT : 3;
+	if (xfer->getXferMode() == XFER_LOAD)
+	{
+		for (Int i = serializedSlotCount; i < WEAPONSLOT_COUNT; ++i)
+		{
+			deleteInstance(m_weapons[i]);
+			m_weapons[i] = nullptr;
+		}
+	}
+	for (Int i = 0; i < serializedSlotCount; ++i)
 	{
 		Bool hasWeaponInSlot = (m_weapons[i] != nullptr);
 		xfer->xferBool(&hasWeaponInSlot);
@@ -343,7 +355,7 @@ void WeaponSet::updateWeaponSet(const Object* obj)
 			{
 				m_weapons[i] = TheWeaponStore->allocateNewWeapon(set->getNth((WeaponSlotType)i), (WeaponSlotType)i);
 				m_weapons[i]->loadAmmoNow(obj);	// start 'em all with full clips.
-				m_filledWeaponSlotMask |= (1 << i);
+				m_filledWeaponSlotMask |= (1u << i);
 				m_totalAntiMask |= m_weapons[i]->getAntiMask();
 				m_totalDamageTypeMask.set(m_weapons[i]->getDamageType());
 				if (m_weapons[i]->isPitchLimited())
@@ -368,27 +380,52 @@ void WeaponSet::updateWeaponSet(const Object* obj)
 	static const ModelConditionFlagType Nothing[] = {
 		MODELCONDITION_INVALID,
 		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
 		MODELCONDITION_INVALID
 	};
 	static const ModelConditionFlagType Firing[] = {
 		MODELCONDITION_FIRING_A,
 		MODELCONDITION_FIRING_B,
-		MODELCONDITION_FIRING_C
+		MODELCONDITION_FIRING_C,
+		MODELCONDITION_FIRING_D,
+		MODELCONDITION_FIRING_E,
+		MODELCONDITION_FIRING_F,
+		MODELCONDITION_FIRING_G,
+		MODELCONDITION_FIRING_H
 	};
 	static const ModelConditionFlagType Betweening[] = {
 		MODELCONDITION_BETWEEN_FIRING_SHOTS_A,
 		MODELCONDITION_BETWEEN_FIRING_SHOTS_B,
-		MODELCONDITION_BETWEEN_FIRING_SHOTS_C
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_C,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_D,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_E,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_F,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_G,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_H
 	};
 	static const ModelConditionFlagType Reloading[] = {
 		MODELCONDITION_RELOADING_A,
 		MODELCONDITION_RELOADING_B,
-		MODELCONDITION_RELOADING_C
+		MODELCONDITION_RELOADING_C,
+		MODELCONDITION_RELOADING_D,
+		MODELCONDITION_RELOADING_E,
+		MODELCONDITION_RELOADING_F,
+		MODELCONDITION_RELOADING_G,
+		MODELCONDITION_RELOADING_H
 	};
 	static const ModelConditionFlagType PreAttack[] = {
 		MODELCONDITION_PREATTACK_A,
 		MODELCONDITION_PREATTACK_B,
-		MODELCONDITION_PREATTACK_C
+		MODELCONDITION_PREATTACK_C,
+		MODELCONDITION_PREATTACK_D,
+		MODELCONDITION_PREATTACK_E,
+		MODELCONDITION_PREATTACK_F,
+		MODELCONDITION_PREATTACK_G,
+		MODELCONDITION_PREATTACK_H
 	};
 	static const ModelConditionFlagType* Lookup[] = {
 		Nothing,
@@ -413,7 +450,12 @@ void WeaponSet::updateWeaponSet(const Object* obj)
 	static const ModelConditionFlagType Using[] = {
 		MODELCONDITION_USING_WEAPON_A,
 		MODELCONDITION_USING_WEAPON_B,
-		MODELCONDITION_USING_WEAPON_C
+		MODELCONDITION_USING_WEAPON_C,
+		MODELCONDITION_USING_WEAPON_D,
+		MODELCONDITION_USING_WEAPON_E,
+		MODELCONDITION_USING_WEAPON_F,
+		MODELCONDITION_USING_WEAPON_G,
+		MODELCONDITION_USING_WEAPON_H
 	};
 	static_assert(ARRAY_SIZE(Using) == WEAPONSLOT_COUNT, "Incorrect array size");
 	if (a != WSF_NONE)
@@ -697,7 +739,8 @@ CanAttackResult WeaponSet::getAbleToUseWeaponAgainstTarget( AbleToAttackType att
 	const Object *containedBy = source->getContainedBy();
 	Bool hasAWeaponInRange = FALSE;
 	Bool hasAWeapon				 = FALSE;
-	for (Int slot = 0; slot < WEAPONSLOT_COUNT - 1; ++slot)
+	// Preserve legacy repeated current-weapon checks; investigate separately.
+	for (Int slot = 0; slot < 2; ++slot)
 	{
 		Weapon *weaponToTestForRange = m_weapons[ m_curWeapon ];
 		if ( weaponToTestForRange )
