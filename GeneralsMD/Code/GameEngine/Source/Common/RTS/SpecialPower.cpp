@@ -282,6 +282,14 @@ SpecialPowerTemplate* SpecialPowerStore::findSpecialPowerTemplatePrivate( AsciiS
 //-------------------------------------------------------------------------------------------------
 const SpecialPowerTemplate *SpecialPowerStore::findSpecialPowerTemplateByID( UnsignedInt id )
 {
+	// IDs normally follow insertion order; reset can leave gaps.
+	if (id != 0 && id <= m_specialPowerTemplates.size())
+	{
+		const SpecialPowerTemplate* candidate = m_specialPowerTemplates[id - 1];
+		if (candidate->getID() == id)
+			return candidate;
+	}
+
 
 	// search the template list for matching name
 	for( size_t i = 0; i < m_specialPowerTemplates.size(); ++i )
