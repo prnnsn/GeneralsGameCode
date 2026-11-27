@@ -37,6 +37,7 @@
 #include "GameClient/Color.h"
 #include "GameClient/RadiusDecal.h"
 #include <deque>
+#include <map>
 #include <vector>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
@@ -909,6 +910,11 @@ protected:
 	std::deque<CustomRadiusCursorDefinition> m_customRadiusCursors;
 	std::vector<RadiusDecalTemplate> m_defaultRadiusCursorTemplates;
 
+	typedef std::map<AsciiString, CommandButton*> CommandButtonNameIndex;
+	typedef std::map<AsciiString, CommandSet*> CommandSetNameIndex;
+	CommandButtonNameIndex m_commandButtonNameIndex;
+	CommandSetNameIndex m_commandSetNameIndex;
+	Bool m_commandNameIndexesReady;
 	CommandButton *m_commandButtons;							///< list of possible commands to have
 	CommandSet *m_commandSets;										///< list of all command sets defined
 	ControlBarSchemeManager *m_controlBarSchemeManager;		///< The Scheme singleton

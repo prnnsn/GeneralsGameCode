@@ -968,6 +968,7 @@ CommandSet::~CommandSet()
 ControlBar::ControlBar()
 {
 	Int i;
+	m_commandNameIndexesReady = true;
 	m_commandButtons = nullptr;
 	m_commandSets = nullptr;
 	m_controlBarSchemeManager = nullptr;
@@ -1074,6 +1075,9 @@ ControlBar::ControlBar()
 //-------------------------------------------------------------------------------------------------
 ControlBar::~ControlBar()
 {
+	m_commandNameIndexesReady = false;
+	m_commandButtonNameIndex.clear();
+	m_commandSetNameIndex.clear();
 
 	if(m_scienceLayout)
 	{
@@ -1445,6 +1449,9 @@ void ControlBar::reset()
 		m_animateDownWindow = nullptr;
 	}
 
+	m_commandNameIndexesReady = false;
+	m_commandButtonNameIndex.clear();
+	m_commandSetNameIndex.clear();
 	// Remove any overridden sets.
 	CommandSet *set, *nextSet;
 	set = m_commandSets;
@@ -1480,6 +1487,12 @@ void ControlBar::reset()
 
 		button = nextButton;
 	}
+	// Rebuild in original first-match list order after removing overrides.
+	for (CommandSet* item = m_commandSets; item; item = item->friend_getNext())
+		m_commandSetNameIndex.insert(std::make_pair(item->getName(), item));
+	for (CommandButton* item = m_commandButtons; item; item = item->friend_getNext())
+		m_commandButtonNameIndex.insert(std::make_pair(item->getName(), item));
+	m_commandNameIndexesReady = true;
 	// Restore global templates and discard definitions from the previous map.
 	m_customRadiusCursors.resize(m_defaultRadiusCursorTemplates.size());
 	for (std::size_t i = 0; i < m_defaultRadiusCursorTemplates.size(); ++i)
@@ -2048,6 +2061,12 @@ void ControlBar::evaluateContextUI()
 //-------------------------------------------------------------------------------------------------
 CommandButton *ControlBar::findNonConstCommandButton( const AsciiString& name )
 {
+	if (m_commandNameIndexesReady)
+	{
+		CommandButtonNameIndex::const_iterator it = m_commandButtonNameIndex.find(name);
+		return it == m_commandButtonNameIndex.end() ? nullptr :
+			static_cast<CommandButton*>(it->second->friend_getFinalOverride());
+	}
 
 	for( const CommandButton *command = m_commandButtons; command; command = command->getNext() )
 		if( command->getName() == name )
@@ -2072,6 +2091,8 @@ CommandButton *ControlBar::newCommandButton( const AsciiString& name )
 
 	// link to list
 	newButton->friend_addToList(&m_commandButtons);
+	if (m_commandNameIndexesReady)
+		m_commandButtonNameIndex[name] = newButton;
 
 	// return the new button
 	return newButton;
@@ -2151,6 +2172,11 @@ CommandButton *ControlBar::newCommandButtonOverride( CommandButton *buttonToOver
 //-------------------------------------------------------------------------------------------------
 CommandSet* ControlBar::findNonConstCommandSet( const AsciiString& name )
 {
+	if (m_commandNameIndexesReady)
+	{
+		CommandSetNameIndex::const_iterator it = m_commandSetNameIndex.find(name);
+		return it == m_commandSetNameIndex.end() ? nullptr : it->second;
+	}
 	CommandSet* set;
 
 	for( set = m_commandSets; set != nullptr; set = set->friend_getNext() )
@@ -2193,6 +2219,8 @@ CommandSet *ControlBar::newCommandSet( const AsciiString& name )
 	CommandSet* set = newInstance(CommandSet)(name);
 	// add it to the list.
 	set->friend_addToList(&m_commandSets);
+	if (m_commandNameIndexesReady)
+		m_commandSetNameIndex[name] = set;
 	// return the newly created set
 	return set;
 
