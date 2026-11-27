@@ -34,6 +34,7 @@
 #include "Common/INI.h"
 #include "Common/Snapshot.h"
 #include "Common/BitFlags.h"
+#include <map>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class Player;
@@ -258,6 +259,9 @@ protected:
 	void linkUpgrade( UpgradeTemplate *upgrade );			///< link upgrade to list
 	void unlinkUpgrade( UpgradeTemplate *upgrade );		///< remove upgrade from list
 
+	// Lookup index only; the original list controls enumeration and ownership.
+	typedef std::map<NameKeyType, UpgradeTemplate*> UpgradeNameMap;
+	UpgradeNameMap m_upgradeByKey;
 	UpgradeTemplate *m_upgradeList;										///< list of all upgrades we can have
 	Int m_nextTemplateMaskBit;												///< Each instantiated UpgradeTemplate will be given a Int64 bit as an identifier
 	Bool buttonImagesCached;

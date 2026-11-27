@@ -234,6 +234,7 @@ UpgradeCenter::UpgradeCenter()
 UpgradeCenter::~UpgradeCenter()
 {
 
+	m_upgradeByKey.clear();
 	// delete all the upgrades loaded from the INI database
 	UpgradeTemplate *next;
 	while( m_upgradeList )
@@ -306,16 +307,8 @@ const UpgradeTemplate *UpgradeCenter::findVeterancyUpgrade( VeterancyLevel level
 //-------------------------------------------------------------------------------------------------
 UpgradeTemplate *UpgradeCenter::findNonConstUpgradeByKey( NameKeyType key )
 {
-	UpgradeTemplate *upgrade;
-
-	// search list
-	for( upgrade = m_upgradeList; upgrade; upgrade = upgrade->friend_getNext() )
-		if( upgrade->getUpgradeNameKey() == key )
-			return upgrade;
-
-	// item not found
-	return nullptr;
-
+	UpgradeNameMap::const_iterator it = m_upgradeByKey.find(key);
+	return it != m_upgradeByKey.end() ? it->second : nullptr;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -333,15 +326,8 @@ UpgradeTemplate *UpgradeCenter::firstUpgradeTemplate()
 //-------------------------------------------------------------------------------------------------
 const UpgradeTemplate *UpgradeCenter::findUpgradeByKey( NameKeyType key ) const
 {
-	const UpgradeTemplate *upgrade;
-
-	// search list
-	for( upgrade = m_upgradeList; upgrade; upgrade = upgrade->friend_getNext() )
-		if( upgrade->getUpgradeNameKey() == key )
-			return upgrade;
-
-	// item not found
-	return nullptr;
+	UpgradeNameMap::const_iterator it = m_upgradeByKey.find(key);
+	return it != m_upgradeByKey.end() ? it->second : nullptr;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -409,6 +395,8 @@ void UpgradeCenter::linkUpgrade( UpgradeTemplate *upgrade )
 	if( m_upgradeList )
 		m_upgradeList->friend_setPrev( upgrade );
 	m_upgradeList = upgrade;
+	// New entries are inserted at the head; preserve first-match semantics.
+	m_upgradeByKey[upgrade->getUpgradeNameKey()] = upgrade;
 
 }
 
@@ -428,6 +416,18 @@ void UpgradeCenter::unlinkUpgrade( UpgradeTemplate *upgrade )
 		upgrade->friend_getPrev()->friend_setNext( upgrade->friend_getNext() );
 	else
 		m_upgradeList = upgrade->friend_getNext();
+
+	// Only the removed key can change its first matching entry.
+	const NameKeyType key = upgrade->getUpgradeNameKey();
+	m_upgradeByKey.erase(key);
+	for (UpgradeTemplate* item = m_upgradeList; item; item = item->friend_getNext())
+	{
+		if (item->getUpgradeNameKey() == key)
+		{
+			m_upgradeByKey[key] = item;
+			break;
+		}
+	}
 
 }
 
