@@ -36,7 +36,11 @@
  * 08/05/02 KM Texture class redesign (revisited)
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#include <atomic>
+#include <utility>
+
 #include "textureloader.h"
+#include "RenderTexture.h"
 #include "WWLib/mutex.h"
 #include "WWLib/thread.h"
 #include "WWDebug/wwdebug.h"
@@ -60,6 +64,11 @@
 
 bool TextureLoader::TextureLoadSuspended;
 int TextureLoader::TextureInactiveOverrideTime = 0;
+
+// Keep worker-produced DDS payloads bounded while the render queue is paused.
+// An in-flight texture can exceed this threshold and must finish before waiting.
+static constexpr unsigned PackedDDSQueueThreshold = 16 * 1024 * 1024;
+static std::atomic<std::size_t> PendingPackedDDSBytes{0};
 
 #define USE_MANAGED_TEXTURES
 
@@ -972,8 +981,9 @@ void TextureLoader::Load_Thumbnail(TextureBaseClass *tc)
 void LoaderThreadClass::Thread_Function()
 {
 	while (running) {
-		// if there are no tasks on the background queue, no need to grab background lock.
-		if (!_BackgroundQueue.Is_Empty()) {
+		// Backpressure only gates the worker. Foreground demand loads can still finish.
+		if (PendingPackedDDSBytes.load(std::memory_order_relaxed) < PackedDDSQueueThreshold &&
+			!_BackgroundQueue.Is_Empty()) {
 			// Grab background load so other threads know we could be
 			// loading a texture.
 			FastCriticalSectionClass::LockClass lock(_BackgroundCriticalSection);
@@ -1146,11 +1156,13 @@ void TextureLoadTaskClass::Init(TextureBaseClass* tc, TaskType type, PriorityTyp
 
 void TextureLoadTaskClass::Deinit()
 {
+	Release_Packed_DDS();
+
 	// task should not be on any list when it is being detached from texture.
 	WWASSERT(Next == nullptr);
 	WWASSERT(Prev == nullptr);
 
-	WWASSERT(D3DTexture == nullptr);
+	WWASSERT(!LoadTexture2D && D3DTexture == nullptr);
 
 	for (int i = 0; i < MIP_LEVELS_MAX; ++i) {
 		WWASSERT(LockedSurfacePtr[i] == nullptr);
@@ -1197,8 +1209,11 @@ bool TextureLoadTaskClass::Begin_Load()
 		return false;
 	}
 
-	// lock surfaces in preparation for copy
-	Lock_Surfaces();
+	// Lock surfaces in preparation for copy.
+	if (!Lock_Surfaces()) {
+		Renderer::Release_Texture_2D(LoadTexture2D);
+		return false;
+	}
 
 	State = STATE_LOAD_BEGUN;
 
@@ -1216,7 +1231,7 @@ bool TextureLoadTaskClass::Begin_Load()
 bool TextureLoadTaskClass::Load()
 {
 	WWMEMLOG(MEM_TEXTURE);
-	WWASSERT(Peek_D3D_Texture());
+	WWASSERT(LoadTexture2D || D3DTexture);
 
 	bool loaded = false;
 
@@ -1236,12 +1251,31 @@ bool TextureLoadTaskClass::Load()
 }
 
 
+void TextureLoadTaskClass::Release_Packed_DDS()
+{
+	if (PackedDDS) {
+		const unsigned bytes = PackedDDS->byte_count;
+		PackedDDS.reset();
+		PendingPackedDDSBytes.fetch_sub(bytes, std::memory_order_relaxed);
+	}
+}
+
+
 void TextureLoadTaskClass::End_Load()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
 
-	Unlock_Surfaces();
-	Apply(true);
+	if (PackedDDS) {
+		PackedDDS->CopyTo(LockedSurfacePtr, LockedSurfacePitch);
+		Release_Packed_DDS();
+	}
+
+	if (Unlock_Surfaces()) {
+		Apply(true);
+	} else {
+		Renderer::Release_Texture_2D(LoadTexture2D);
+		Apply_Missing_Texture();
+	}
 
 	State = STATE_LOAD_COMPLETE;
 }
@@ -1276,7 +1310,7 @@ void TextureLoadTaskClass::Finish_Load()
 void TextureLoadTaskClass::Apply_Missing_Texture()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
-	WWASSERT(!D3DTexture);
+	WWASSERT(!LoadTexture2D && !D3DTexture);
 
 	D3DTexture = MissingTexture::_Get_Missing_Texture();
 	Apply(true);
@@ -1285,11 +1319,16 @@ void TextureLoadTaskClass::Apply_Missing_Texture()
 
 void TextureLoadTaskClass::Apply(bool initialize)
 {
-	WWASSERT(D3DTexture);
+	WWASSERT(static_cast<bool>(LoadTexture2D) != (D3DTexture != nullptr));
 
 	// Verify that none of the mip levels are locked
 	for (unsigned i=0;i<MipLevelCount;++i) {
 		WWASSERT(LockedSurfacePtr[i]==nullptr);
+	}
+
+	if (LoadTexture2D) {
+		Renderer::Apply_Load_Texture_2D(*Texture, LoadTexture2D, initialize);
+		return;
 	}
 
 	Texture->Apply_New_Surface(D3DTexture, initialize);
@@ -1540,21 +1579,8 @@ bool TextureLoadTaskClass::Begin_Compressed_Load()
 
 	Apply_Mip_Reduction(MipLevelCount, Reduction, Width, Height, orig_mip_count);
 
-	D3DTexture	= DX8Wrapper::_Create_DX8_Texture
-	(
-		Width,
-		Height,
-		Format,
-		(MipCountType)MipLevelCount,
-#ifdef USE_MANAGED_TEXTURES
-		D3DPOOL_MANAGED
-#else
-		D3DPOOL_SYSTEMMEM
-#endif
-	);
-
-	// Texture creation can fail, e.g. when out of memory
-	return D3DTexture != nullptr;
+	LoadTexture2D = Renderer::Create_Load_Texture_2D(Width, Height, Format, MipLevelCount);
+	return static_cast<bool>(LoadTexture2D);
 }
 
 bool TextureLoadTaskClass::Begin_Uncompressed_Load()
@@ -1610,66 +1636,24 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 		Format = Get_Valid_Texture_Format(Format, false);
 	}
 
-	D3DTexture = DX8Wrapper::_Create_DX8_Texture
-	(
-		Width,
-		Height,
-		Format,
-		Texture->MipLevelCount,
-#ifdef USE_MANAGED_TEXTURES
-		D3DPOOL_MANAGED
-#else
-		D3DPOOL_SYSTEMMEM
-#endif
-	);
-
-	return D3DTexture != nullptr;
+	LoadTexture2D = Renderer::Create_Load_Texture_2D(
+		Width, Height, Format, Texture->MipLevelCount);
+	return static_cast<bool>(LoadTexture2D);
 }
 
 
-void TextureLoadTaskClass::Lock_Surfaces()
+bool TextureLoadTaskClass::Lock_Surfaces()
 {
-	MipLevelCount = D3DTexture->GetLevelCount();
-
-	for (unsigned int i = 0; i < MipLevelCount; ++i)
-	{
-		D3DLOCKED_RECT locked_rect;
-		DX8_ErrorCode
-		(
-			Peek_D3D_Texture()->LockRect
-			(
-				i,
-				&locked_rect,
-				nullptr,
-				0
-			)
-		);
-		LockedSurfacePtr[i]		= (unsigned char *)locked_rect.pBits;
-		LockedSurfacePitch[i]	= locked_rect.Pitch;
-	}
+	MipLevelCount = Renderer::Map_Texture_2D_Mips(
+		LoadTexture2D, LockedSurfacePtr, LockedSurfacePitch, MIP_LEVELS_MAX);
+	return MipLevelCount != 0;
 }
 
 
-void TextureLoadTaskClass::Unlock_Surfaces()
+bool TextureLoadTaskClass::Unlock_Surfaces()
 {
-	for (unsigned int i = 0; i < MipLevelCount; ++i)
-	{
-		if (LockedSurfacePtr[i])
-		{
-			WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
-			DX8_ErrorCode(Peek_D3D_Texture()->UnlockRect(i));
-		}
-		LockedSurfacePtr[i] = nullptr;
-	}
-
-#ifndef USE_MANAGED_TEXTURES
-	IDirect3DTexture8* tex = DX8Wrapper::_Create_DX8_Texture(Width, Height, Format, Texture->MipLevelCount,D3DPOOL_DEFAULT);
-	DX8CALL(UpdateTexture(Peek_D3D_Texture(),tex));
-	Peek_D3D_Texture()->Release();
-	D3DTexture=tex;
-	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
-#endif
-
+	return Renderer::Unmap_Texture_2D_Mips(
+		LoadTexture2D, LockedSurfacePtr, LockedSurfacePitch, MipLevelCount);
 }
 
 
@@ -1679,11 +1663,21 @@ bool TextureLoadTaskClass::Load_Compressed_Mipmap()
 
 	if (HSVShift[0] == 0.0f && HSVShift[1] == 0.0f && HSVShift[2] == 0.0f)
 	{
-		const auto packed = dds_file.Try_Load_Packed_2D(
-			Get_Format(), Get_Width(), Get_Height(), Get_Mip_Level_Count(),
-			LockedSurfacePtr, LockedSurfacePitch);
-		if (packed != DDSFileClass::PackedLoadResult::Ineligible)
-			return packed == DDSFileClass::PackedLoadResult::Loaded;
+		RenderTextures::PackedDDSData data;
+		const auto result = dds_file.Try_Read_Packed_2D(
+			Get_Format(), Get_Width(), Get_Height(), Get_Mip_Level_Count(), data);
+		if (result == DDSFileClass::PackedLoadResult::Loaded) {
+			// The pitches are stable until End_Load unlocks these surfaces.
+			// Check them now so a failed packed load can still take the usual fallback.
+			if (!data.CanCopyTo(LockedSurfacePtr, LockedSurfacePitch))
+				return false;
+
+			PackedDDS = std::make_unique<RenderTextures::PackedDDSData>(std::move(data));
+			PendingPackedDDSBytes.fetch_add(PackedDDS->byte_count, std::memory_order_relaxed);
+			return true;
+		}
+		if (result == DDSFileClass::PackedLoadResult::Failed)
+			return false;
 	}
 
 	// if we can't load from file, indicate error.
@@ -2010,7 +2004,7 @@ void CubeTextureLoadTaskClass::Deinit()
 	}
 }
 
-void CubeTextureLoadTaskClass::Lock_Surfaces()
+bool CubeTextureLoadTaskClass::Lock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2032,9 +2026,10 @@ void CubeTextureLoadTaskClass::Lock_Surfaces()
 			LockedCubeSurfacePitch[f][i]= locked_rect.Pitch;
 		}
 	}
+	return true;
 }
 
-void CubeTextureLoadTaskClass::Unlock_Surfaces()
+bool CubeTextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2067,6 +2062,7 @@ void CubeTextureLoadTaskClass::Unlock_Surfaces()
 	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
 #endif
 
+	return true;
 }
 
 
@@ -2328,7 +2324,7 @@ void VolumeTextureLoadTaskClass::Init(TextureBaseClass* tc, TaskType type, Prior
 	}
 }
 
-void VolumeTextureLoadTaskClass::Lock_Surfaces()
+bool VolumeTextureLoadTaskClass::Lock_Surfaces()
 {
 	for (unsigned int i=0; i<MipLevelCount; i++)
 	{
@@ -2347,10 +2343,11 @@ void VolumeTextureLoadTaskClass::Lock_Surfaces()
 		LockedSurfacePitch[i]		= locked_box.RowPitch;
 		LockedSurfaceSlicePitch[i]	= locked_box.SlicePitch;
 	}
+	return true;
 }
 
 
-void VolumeTextureLoadTaskClass::Unlock_Surfaces()
+bool VolumeTextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int i = 0; i < MipLevelCount; ++i)
 	{
@@ -2373,6 +2370,7 @@ void VolumeTextureLoadTaskClass::Unlock_Surfaces()
 	WWDEBUG_SAY(("Created non-managed texture (%s)",Texture->Get_Full_Path()));
 #endif
 
+	return true;
 }
 
 

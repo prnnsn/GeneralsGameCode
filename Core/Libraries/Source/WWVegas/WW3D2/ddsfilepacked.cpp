@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <climits>
 #include <cstring>
 #include <memory>
+#include <utility>
 
 #include "ddsfile.h"
 #include "RenderTexture.h"
 #include "WWLib/ffactory.h"
 
-DDSFileClass::PackedLoadResult DDSFileClass::Try_Load_Packed_2D(
+DDSFileClass::PackedLoadResult DDSFileClass::Try_Read_Packed_2D(
     WW3DFormat dest_format, unsigned width, unsigned height, unsigned mip_count,
-    unsigned char * const * dest_surfaces, const unsigned * dest_pitches) const
+    RenderTextures::PackedDDSData & out) const
 {
     constexpr unsigned FourCCFlag = 0x4;
     constexpr int HeaderBytes = 128;
-    constexpr int MaxSurfaceBytes = INT_MAX;
 
     if (!Is_Available() || Type != DDS_TEXTURE || dest_format != Format ||
         !mip_count || mip_count > MipLevels || width != Get_Width(0) || height != Get_Height(0) ||
@@ -47,16 +46,6 @@ DDSFileClass::PackedLoadResult DDSFileClass::Try_Load_Packed_2D(
                                           payload_bytes, chain))
         return PackedLoadResult::Ineligible;
 
-    // Check every locked mip before writing any of them.
-    for (unsigned level = 0; level < mip_count; ++level)
-    {
-        const auto & mip = chain[ReductionFactor + level].layout;
-        std::uint32_t span;
-        if (!dest_surfaces[level] || dest_pitches[level] > MaxSurfaceBytes ||
-            !RenderTextures::TryRowSpan(mip, dest_pitches[level], MaxSurfaceBytes, span))
-            return PackedLoadResult::Failed;
-    }
-
     const unsigned first_offset = chain[ReductionFactor].offset;
     const unsigned after_last = ReductionFactor + mip_count;
     const unsigned end_offset = after_last < stored_levels ? chain[after_last].offset : payload_bytes;
@@ -72,20 +61,12 @@ DDSFileClass::PackedLoadResult DDSFileClass::Try_Load_Packed_2D(
 
     for (unsigned level = 0; level < mip_count; ++level)
     {
-        const auto & mip = chain[ReductionFactor + level];
-        const auto * source = packed.get() + (mip.offset - first_offset);
-        auto * dest = dest_surfaces[level];
-        const unsigned dest_pitch = dest_pitches[level];
-        if (dest_pitch == mip.layout.row_bytes)
-        {
-            std::memcpy(dest, source, mip.layout.row_count * mip.layout.row_bytes);
-            continue;
-        }
-
-        for (unsigned row = 0; row < mip.layout.row_count; ++row)
-            std::memcpy(dest + row * dest_pitch, source + row * mip.layout.row_bytes,
-                        mip.layout.row_bytes);
+        out.mips[level] = chain[ReductionFactor + level];
+        out.mips[level].offset -= first_offset;
     }
+    out.bytes = std::move(packed);
+    out.byte_count = read_bytes;
+    out.mip_count = mip_count;
 
     return PackedLoadResult::Loaded;
 }

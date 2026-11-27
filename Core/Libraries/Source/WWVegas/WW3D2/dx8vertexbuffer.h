@@ -129,6 +129,7 @@ class DynamicVBAccessClass
 {
 	friend DX8Wrapper;
 	friend SortingRendererClass;
+	friend class Renderer;
 
 	const FVFInfoClass& FVFInfo;
 	unsigned Type;
@@ -138,7 +139,8 @@ class DynamicVBAccessClass
 //	static VertexFormatXYZNDUV2* _Get_Sorting_Vertex_Array();
 
 	void Allocate_Sorting_Dynamic_Buffer();
-	void Allocate_DX8_Dynamic_Buffer();
+	void Allocate_DX8_Dynamic_Buffer(bool assert_on_failure = true);
+	void Retire_DX8_Buffer();
 public:
 	// Type parameter can be either BUFFER_TYPE_DYNAMIC_DX8 or BUFFER_TYPE_DYNAMIC_SORTING.
 
@@ -146,6 +148,8 @@ public:
 	// only acceptable parameter is "dynamic_fvf_type". Any other type will
 	// result to an assert.
 	DynamicVBAccessClass(unsigned type,unsigned fvf,unsigned short vertex_count);
+	// Checked GPU reservation with the existing dynamic layout.
+	explicit DynamicVBAccessClass(unsigned short vertex_count);
 	~DynamicVBAccessClass();
 
 	// Access fvf
@@ -207,6 +211,7 @@ public:
 	};
 
 	DX8VertexBufferClass(unsigned FVF, unsigned short VertexCount, UsageType usage=USAGE_DEFAULT);
+	DX8VertexBufferClass(unsigned FVF, unsigned short VertexCount, UsageType usage, bool assert_on_failure);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector3* normals, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector3* normals, const Vector4* diffuse, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector4* diffuse, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
@@ -224,7 +229,7 @@ public:
 protected:
 	IDirect3DVertexBuffer8*		VertexBuffer;
 
-	void Create_Vertex_Buffer(UsageType usage);
+	void Create_Vertex_Buffer(UsageType usage, bool assert_on_failure=true);
 };
 
 

@@ -127,6 +127,109 @@ TEST(RenderTexture, PackedDdsRequiresExactlyTheStoredChain)
     EXPECT_EQ(87360u, chain[6].offset);
 }
 
+TEST(RenderTexture, StagedDdsValidatesAllMipsAndCopiesOnlyTheirBlockRows)
+{
+    PackedDDSData data;
+    data.mips[0] = { { 4, 8, 8, 2 }, 0 };
+    data.mips[1] = { { 2, 4, 8, 1 }, 16 };
+    data.byte_count = 24;
+    data.mip_count = 2;
+    data.bytes = std::make_unique<unsigned char[]>(data.byte_count);
+    for (unsigned i = 0; i < data.byte_count; ++i)
+        data.bytes[i] = static_cast<unsigned char>(i + 1);
+
+    std::array<unsigned char, 24> main_surface;
+    std::array<unsigned char, 8> small_surface;
+    main_surface.fill(0xcd);
+    small_surface.fill(0xcd);
+    const auto original_main = main_surface;
+    const auto original_small = small_surface;
+    unsigned char * surfaces[] = { main_surface.data(), small_surface.data() };
+    unsigned pitches[] = { 12, 7 };
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    pitches[1] = 8;
+    --data.byte_count;
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    ++data.byte_count;
+    surfaces[1] = nullptr;
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    surfaces[1] = small_surface.data();
+
+    EXPECT_EQ(original_main, main_surface);
+    EXPECT_EQ(original_small, small_surface);
+
+    ASSERT_TRUE(data.CanCopyTo(surfaces, pitches));
+    data.CopyTo(surfaces, pitches);
+    const std::array<unsigned char, 24> expected_main = {
+        1, 2, 3, 4, 5, 6, 7, 8, 0xcd, 0xcd, 0xcd, 0xcd,
+        9, 10, 11, 12, 13, 14, 15, 16, 0xcd, 0xcd, 0xcd, 0xcd
+    };
+    const std::array<unsigned char, 8> expected_small = { 17, 18, 19, 20, 21, 22, 23, 24 };
+    EXPECT_EQ(expected_main, main_surface);
+    EXPECT_EQ(expected_small, small_surface);
+}
+
+TEST(RenderTexture, FillPixelRectWritesInclusivePaddedRows)
+{
+    std::array<unsigned char, 14> bytes;
+    bytes.fill(0xcd);
+    const SurfaceWriteView view = {
+        bytes.data(), { 3, 2, 6, 2 }, 8, static_cast<std::uint32_t>(bytes.size()), 2, WW3D_FORMAT_A4R4G4B4
+    };
+    ASSERT_TRUE(TryFillPixelRect(view, 1, 0, 2, 1, 0x4321));
+    const std::array<unsigned char, 14> expected = {
+        0xcd, 0xcd, 0x21, 0x43, 0x21, 0x43, 0xcd, 0xcd,
+        0xcd, 0xcd, 0x21, 0x43, 0x21, 0x43
+    };
+    EXPECT_EQ(expected, bytes);
+}
+
+TEST(RenderTexture, FillPixelRectValidatesTheWholeRectangleBeforeWriting)
+{
+    std::array<unsigned char, 16> bytes;
+    bytes.fill(0xcd);
+    const auto original = bytes;
+    SurfaceWriteView view = {
+        bytes.data(), { 2, 2, 8, 2 }, 8, 15, 4, WW3D_FORMAT_A8R8G8B8
+    };
+    EXPECT_FALSE(TryFillPixelRect(view, 0, 0, 1, 1, 0xff000000));
+    view.byte_count = static_cast<std::uint32_t>(bytes.size());
+    EXPECT_FALSE(TryFillPixelRect(view, 0, 0, 2, 1, 0xff000000));
+    EXPECT_FALSE(TryFillPixelRect(view, 1, 0, 0, 1, 0xff000000));
+    EXPECT_EQ(original, bytes);
+    EXPECT_TRUE(TryFillPixelRect(view, 1, 1, 1, 1, 0xff000000));
+    EXPECT_EQ(0xff, bytes.back());
+    EXPECT_EQ(0xcd, bytes[11]);
+}
+
+TEST(RenderTexture, ClearRowsPreservesPaddingAndNeedsNoTrailingPadding)
+{
+    MipLayout layout = {};
+    ASSERT_TRUE(TryMipLayout({ 3, 2, 1, WW3D_FORMAT_A8R8G8B8 }, 0, layout));
+    std::array<unsigned char, 28> pixels;
+    pixels.fill(0xcd);
+
+    ASSERT_TRUE(TryClearRows(layout, pixels.data(), 16, pixels.size()));
+    const std::array<unsigned char, 28> expected = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xcd, 0xcd, 0xcd, 0xcd,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    EXPECT_EQ(expected, pixels);
+}
+
+TEST(RenderTexture, ClearRowsRejectsInvalidViewsWithoutWriting)
+{
+    const MipLayout layout = { 3, 2, 12, 2 };
+    std::array<unsigned char, 28> pixels;
+    pixels.fill(0xcd);
+    const auto original = pixels;
+
+    EXPECT_FALSE(TryClearRows(layout, pixels.data(), 16, 27));
+    EXPECT_FALSE(TryClearRows(layout, pixels.data(), 11, pixels.size()));
+    EXPECT_FALSE(TryClearRows(layout, nullptr, 16, pixels.size()));
+    EXPECT_EQ(original, pixels);
+}
+
 TEST(RenderTexture, PaddedRowsUseOnlyRequiredBytes)
 {
     MipLayout mip = {};

@@ -286,9 +286,15 @@ IndexBufferClass::AppendLockClass::~AppendLockClass()
 //
 // ----------------------------------------------------------------------------
 
-DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_,UsageType usage)
+DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_, UsageType usage)
+	: DX8IndexBufferClass(index_count_, usage, true)
+{
+}
+
+DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_, UsageType usage, bool assert_on_failure)
 	:
-	IndexBufferClass(BUFFER_TYPE_DX8,index_count_)
+	IndexBufferClass(BUFFER_TYPE_DX8,index_count_),
+	index_buffer(nullptr)
 {
 	DX8_THREAD_ASSERT();
 	WWASSERT(index_count);
@@ -334,15 +340,21 @@ DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_,UsageType u
 		WWDEBUG_SAY(("...Index buffer creation successful"));
 	}
 
-	// If it still fails it is fatal
-	DX8_ErrorCode(ret);
+	if (FAILED(ret))
+	{
+		if (assert_on_failure)
+			DX8_ErrorCode(ret);
+		else
+			Non_Fatal_Log_DX8_ErrorCode(ret, __FILE__, __LINE__);
+	}
 }
 
 // ----------------------------------------------------------------------------
 
 DX8IndexBufferClass::~DX8IndexBufferClass()
 {
-	index_buffer->Release();
+	if (index_buffer)
+		index_buffer->Release();
 }
 
 // ----------------------------------------------------------------------------
@@ -389,6 +401,16 @@ DynamicIBAccessClass::DynamicIBAccessClass(unsigned short type_, unsigned short 
 	}
 }
 
+DynamicIBAccessClass::DynamicIBAccessClass(unsigned short index_count)
+	: Type(BUFFER_TYPE_INVALID), IndexCount(index_count), IndexBufferOffset(0), IndexBuffer(nullptr)
+{
+	DX8_THREAD_ASSERT();
+	if (!index_count || _DynamicDX8IndexBufferInUse || !DX8Wrapper::_Get_D3D_Device8())
+		return;
+	Type = BUFFER_TYPE_DYNAMIC_DX8;
+	Allocate_DX8_Dynamic_Buffer(false);
+}
+
 DynamicIBAccessClass::~DynamicIBAccessClass()
 {
 	REF_PTR_RELEASE(IndexBuffer);
@@ -396,7 +418,7 @@ DynamicIBAccessClass::~DynamicIBAccessClass()
 		_DynamicDX8IndexBufferInUse=false;
 		_DynamicDX8IndexBufferOffset+=IndexCount;
 	}
-	else {
+	else if (Type == BUFFER_TYPE_DYNAMIC_SORTING) {
 		_DynamicSortingIndexArrayInUse=false;
 		_DynamicSortingIndexArrayOffset+=IndexCount;
 	}
@@ -476,7 +498,7 @@ DynamicIBAccessClass::WriteLockClass::~WriteLockClass()
 //
 // ----------------------------------------------------------------------------
 
-void DynamicIBAccessClass::Allocate_DX8_Dynamic_Buffer()
+void DynamicIBAccessClass::Allocate_DX8_Dynamic_Buffer(bool assert_on_failure)
 {
 	WWMEMLOG(MEM_RENDERER);
 	WWASSERT(!_DynamicDX8IndexBufferInUse);
@@ -499,8 +521,16 @@ void DynamicIBAccessClass::Allocate_DX8_Dynamic_Buffer()
 
 		_DynamicDX8IndexBuffer=NEW_REF(DX8IndexBufferClass,(
 			_DynamicDX8IndexBufferSize,
-			(DX8IndexBufferClass::UsageType)usage));
+			(DX8IndexBufferClass::UsageType)usage, assert_on_failure));
 		_DynamicDX8IndexBufferOffset=0;
+	}
+
+	if (!assert_on_failure && !_DynamicDX8IndexBuffer->Get_DX8_Index_Buffer())
+	{
+		REF_PTR_RELEASE(_DynamicDX8IndexBuffer);
+		_DynamicDX8IndexBufferInUse = false;
+		Type = BUFFER_TYPE_INVALID;
+		return;
 	}
 
 	// Any room at the end of the buffer?
@@ -510,6 +540,12 @@ void DynamicIBAccessClass::Allocate_DX8_Dynamic_Buffer()
 
 	REF_PTR_SET(IndexBuffer,_DynamicDX8IndexBuffer);
 	IndexBufferOffset=_DynamicDX8IndexBufferOffset;
+}
+
+void DynamicIBAccessClass::Retire_DX8_Buffer()
+{
+	if (IndexBuffer == _DynamicDX8IndexBuffer)
+		REF_PTR_RELEASE(_DynamicDX8IndexBuffer);
 }
 
 void DynamicIBAccessClass::Allocate_Sorting_Dynamic_Buffer()

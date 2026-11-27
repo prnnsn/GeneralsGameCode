@@ -2,8 +2,52 @@
 
 #include "WW3D2/RenderTexture.h"
 
+#include <cassert>
+#include <climits>
+#include <cstring>
+
 namespace RenderTextures
 {
+bool PackedDDSData::CanCopyTo(unsigned char * const * surfaces, const unsigned * pitches) const
+{
+    if (!bytes || !mip_count || mip_count > mips.size())
+        return false;
+
+    for (unsigned level = 0; level < mip_count; ++level)
+    {
+        const auto & mip = mips[level];
+        std::uint32_t span;
+        if (!surfaces[level] || pitches[level] > INT_MAX ||
+            !TryRowSpan(mip.layout, pitches[level], INT_MAX, span) ||
+            mip.offset > byte_count ||
+            !TryRowSpan(mip.layout, mip.layout.row_bytes, byte_count - mip.offset, span))
+            return false;
+    }
+    return true;
+}
+
+void PackedDDSData::CopyTo(unsigned char * const * surfaces, const unsigned * pitches) const
+{
+    assert(CanCopyTo(surfaces, pitches));
+
+    for (unsigned level = 0; level < mip_count; ++level)
+    {
+        const auto & mip = mips[level];
+        const auto * source = bytes.get() + mip.offset;
+        auto * dest = surfaces[level];
+        const unsigned pitch = pitches[level];
+        if (pitch == mip.layout.row_bytes)
+        {
+            std::memcpy(dest, source, mip.layout.row_count * mip.layout.row_bytes);
+            continue;
+        }
+
+        for (unsigned row = 0; row < mip.layout.row_count; ++row)
+            std::memcpy(dest + row * pitch, source + row * mip.layout.row_bytes,
+                        mip.layout.row_bytes);
+    }
+}
+
 bool TryFormatLayout(WW3DFormat format, FormatLayout & out)
 {
     switch (format)
@@ -98,6 +142,39 @@ bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch, std::uint32_t
     if (span > available_bytes)
         return false;
     out = static_cast<std::uint32_t>(span);
+    return true;
+}
+
+bool TryClearRows(const MipLayout & layout, unsigned char * data,
+                  std::uint32_t row_pitch, std::uint32_t available_bytes)
+{
+    std::uint32_t span;
+    if (!data || !TryRowSpan(layout, row_pitch, available_bytes, span))
+        return false;
+
+    for (std::uint32_t row = 0; row < layout.row_count; ++row)
+        std::memset(data + row * row_pitch, 0, layout.row_bytes);
+    return true;
+}
+
+bool TryFillPixelRect(const SurfaceWriteView & view, unsigned left, unsigned top,
+                      unsigned right, unsigned bottom, std::uint32_t value)
+{
+    if (!view.data || !view.pixel_bytes || view.pixel_bytes > sizeof(value) ||
+        left > right || top > bottom || right >= view.layout.width || bottom >= view.layout.height)
+        return false;
+
+    const std::uint64_t row_end = (std::uint64_t(right) + 1) * view.pixel_bytes;
+    if (row_end > view.layout.row_bytes || row_end > view.pitch ||
+        std::uint64_t(bottom) * view.pitch + row_end > view.byte_count)
+        return false;
+
+    for (unsigned y = top; y <= bottom; ++y)
+    {
+        auto * dest = view.data + y * view.pitch + left * view.pixel_bytes;
+        for (unsigned x = left; x <= right; ++x, dest += view.pixel_bytes)
+            std::memcpy(dest, &value, view.pixel_bytes);
+    }
     return true;
 }
 }

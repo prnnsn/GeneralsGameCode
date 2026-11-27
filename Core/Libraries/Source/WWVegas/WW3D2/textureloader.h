@@ -37,13 +37,17 @@
 
 #pragma once
 
+#include <memory>
+
 #include "WWLib/always.h"
 #include "texture.h"
+#include "Renderer.h"
 
 class StringClass;
 struct IDirect3DTexture8;
 class TextureLoadTaskClass;
 class TextureLoadTaskListClass;
+namespace RenderTextures { struct PackedDDSData; }
 
 class TextureLoader
 {
@@ -223,7 +227,6 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 		unsigned int			Get_Locked_Surface_Pitch(unsigned int level) const;
 
 		TextureBaseClass *	Peek_Texture				()				{ return Texture;			}
-		IDirect3DTexture8	*	Peek_D3D_Texture			()				{ return (IDirect3DTexture8*)D3DTexture;		}
 
 		void						Set_Type						(TaskType t)		{ Type		= t;			}
 		void						Set_Priority				(PriorityType p)	{ Priority	= p;			}
@@ -242,8 +245,8 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 		virtual bool			Load_Compressed_Mipmap	();
 		virtual bool			Load_Uncompressed_Mipmap();
 
-		virtual void			Lock_Surfaces				();
-		virtual void			Unlock_Surfaces			();
+		virtual bool			Lock_Surfaces				();
+		virtual bool			Unlock_Surfaces			();
 
 		void						Apply							(bool initialize);
 
@@ -263,6 +266,11 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 		TaskType					Type;
 		PriorityType			Priority;
 		StateType				State;
+
+	private:
+		void Release_Packed_DDS();
+		RenderTexture2DHandle LoadTexture2D;
+		std::unique_ptr<RenderTextures::PackedDDSData> PackedDDS;
 };
 
 class CubeTextureLoadTaskClass : public TextureLoadTaskClass
@@ -281,8 +289,8 @@ protected:
 	virtual bool			Load_Compressed_Mipmap	() override;
 //	virtual bool			Load_Uncompressed_Mipmap() override;
 
-	virtual void			Lock_Surfaces				() override;
-	virtual void			Unlock_Surfaces			() override;
+	virtual bool			Lock_Surfaces				() override;
+	virtual bool			Unlock_Surfaces			() override;
 
 private:
 	unsigned char*			Get_Locked_CubeMap_Surface_Pointer(unsigned int face, unsigned int level);
@@ -309,8 +317,8 @@ protected:
 	virtual bool			Load_Compressed_Mipmap	() override;
 //	virtual bool			Load_Uncompressed_Mipmap() override;
 
-	virtual void			Lock_Surfaces				() override;
-	virtual void			Unlock_Surfaces			() override;
+	virtual bool			Lock_Surfaces				() override;
+	virtual bool			Unlock_Surfaces			() override;
 
 private:
 	unsigned char*			Get_Locked_Volume_Pointer(unsigned int level);

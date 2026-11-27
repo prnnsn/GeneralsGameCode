@@ -25,8 +25,11 @@
 #include "W3DDevice/GameClient/TerrainTex.h"
 #include "W3DDevice/GameClient/WorldHeightMap.h"
 #include "WW3D2/dx8wrapper.h"
+#include "WW3D2/RenderBuffer.h"
 #include "WW3D2/Renderer.h"
 #include "WW3D2/ScopedTerrainDecalDepthBias.h"
+
+#include <cstddef>
 
 W3DScorch::W3DScorch(bool deduplicateScorches)
   : m_vertexScorch(nullptr)
@@ -42,11 +45,27 @@ W3DScorch::~W3DScorch() { freeBuffers(); }
 
 void W3DScorch::allocateBuffers()
 {
+	using namespace RenderBuffers;
 	freeBuffers();
-	m_vertexScorch = NEW_REF(DX8VertexBufferClass, (DX8_FVF_XYZDUV1, MAX_SCORCH_VERTEX, DX8VertexBufferClass::USAGE_DEFAULT));
-	m_indexScorch = NEW_REF(DX8IndexBufferClass, (MAX_SCORCH_INDEX));
+	const VertexLayout layout = { sizeof(VertexFormatXYZDUV1), 3, {
+		{ Semantic::Position, 0, ElementType::Float3, offsetof(VertexFormatXYZDUV1, x) },
+		{ Semantic::Diffuse, 0, ElementType::PackedArgb8, offsetof(VertexFormatXYZDUV1, diffuse) },
+		{ Semantic::TexCoord, 0, ElementType::Float2, offsetof(VertexFormatXYZDUV1, u1) }
+	} };
+	const BufferDesc vertices = { Role::Vertex, Storage::Gpu, Update::Rewritable, Recreation::Regenerate,
+		MAX_SCORCH_VERTEX, sizeof(VertexFormatXYZDUV1), IndexFormat::Absent, layout };
+	const BufferDesc indices = { Role::Index, Storage::Gpu, Update::Rewritable, Recreation::Regenerate,
+		MAX_SCORCH_INDEX, sizeof(UnsignedShort), IndexFormat::UInt16, {} };
+	m_vertexScorch = Renderer::Create_Rewritable_Vertex_Buffer(vertices);
+	if (!m_vertexScorch)
+		return;
+	m_indexScorch = Renderer::Create_Rewritable_Index_Buffer(indices);
+	if (!m_indexScorch)
+	{
+		REF_PTR_RELEASE(m_vertexScorch);
+		return;
+	}
 	m_scorchTexture = NEW ScorchTextureClass;
-	invalidateBuffers();
 }
 
 void W3DScorch::freeBuffers()
@@ -54,6 +73,7 @@ void W3DScorch::freeBuffers()
 	REF_PTR_RELEASE(m_vertexScorch);
 	REF_PTR_RELEASE(m_indexScorch);
 	REF_PTR_RELEASE(m_scorchTexture);
+	invalidateBuffers();
 }
 
 void W3DScorch::clearAllScorches()
@@ -150,15 +170,18 @@ void W3DScorch::updateScorches(WorldHeightMap& map)
 		return;
 	}
 
-	m_needBufferRecompute = false;
-	m_curNumScorchVertices = 0;
-	m_curNumScorchIndices = 0;
-
-	DX8IndexBufferClass::WriteLockClass lockIdxBuffer(m_indexScorch);
-	UnsignedShort* ib = lockIdxBuffer.Get_Index_Array();
-
-	DX8VertexBufferClass::WriteLockClass lockVtxBuffer(m_vertexScorch);
-	VertexFormatXYZDUV1* vb = (VertexFormatXYZDUV1*)lockVtxBuffer.Get_Vertex_Array();
+	Renderer::BufferWrite lockIdxBuffer(m_indexScorch, 0, MAX_SCORCH_INDEX);
+	UnsignedShort* ib = static_cast<UnsignedShort*>(lockIdxBuffer.Data());
+	if (!ib)
+		return;
+	Renderer::BufferWrite lockVtxBuffer(m_vertexScorch, 0, MAX_SCORCH_VERTEX);
+	VertexFormatXYZDUV1* vb = static_cast<VertexFormatXYZDUV1*>(lockVtxBuffer.Data());
+	if (!vb)
+	{
+		if (!lockIdxBuffer.Finish())
+			allocateBuffers();
+		return;
+	}
 
 	Real shadeR = (TheGlobalData->m_terrainAmbient[0].red + TheGlobalData->m_terrainDiffuse[0].red) / 2.0f;
 	Real shadeG = (TheGlobalData->m_terrainAmbient[0].green + TheGlobalData->m_terrainDiffuse[0].green) / 2.0f;
@@ -166,19 +189,32 @@ void W3DScorch::updateScorches(WorldHeightMap& map)
 	UnsignedInt diffuse = DX8Wrapper::Convert_Color_Clamp(Vector4(shadeR, shadeG, shadeB, 1.0f));
 
 	// TheSuperHackers @info Scorches are written in reverse order to ensure that the last added scorches fit in the buffers.
+	Int numVertices = 0;
+	Int numIndices = 0;
 	for (std::deque<TScorch>::reverse_iterator it = m_scorches.rbegin(); it != m_scorches.rend(); ++it)
 	{
 		if (writeScorchToBuffer(*it, map, diffuse,
-		                        vb + m_curNumScorchVertices, ib + m_curNumScorchIndices) == SCORCH_BUFFER_FULL)
-		{
-			return;
-		}
+		                        vb + numVertices, ib + numIndices, numVertices, numIndices) == SCORCH_BUFFER_FULL)
+			break;
 	}
+
+	// Publish the draw counts only after both uploads have finished.
+	const bool verticesWritten = lockVtxBuffer.Finish();
+	const bool indicesWritten = lockIdxBuffer.Finish();
+	if (!verticesWritten || !indicesWritten)
+	{
+		// The driver may still consider a failed unmap to be locked.
+		allocateBuffers();
+		return;
+	}
+	m_curNumScorchVertices = numVertices;
+	m_curNumScorchIndices = numIndices;
+	m_needBufferRecompute = false;
 }
 
 W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorch, WorldHeightMap& map,
                                                           UnsignedInt diffuse, VertexFormatXYZDUV1* curVb,
-                                                          UnsignedShort* curIb)
+                                                          UnsignedShort* curIb, Int& numVertices, Int& numIndices)
 {
 	Real radius = scorch.radius;
 	Vector3 loc = scorch.location;
@@ -213,13 +249,13 @@ W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorc
 
 	const Int requiredVertices = vertexCountX * vertexCountY;
 	const Int requiredIndices = 6 * (vertexCountX - 1) * (vertexCountY - 1);
-	if (m_curNumScorchVertices + requiredVertices > MAX_SCORCH_VERTEX ||
-	    m_curNumScorchIndices + requiredIndices > MAX_SCORCH_INDEX)
+	if (numVertices + requiredVertices > MAX_SCORCH_VERTEX ||
+	    numIndices + requiredIndices > MAX_SCORCH_INDEX)
 	{
 		return SCORCH_BUFFER_FULL;
 	}
 
-	Int startVertex = m_curNumScorchVertices;
+	Int startVertex = numVertices;
 	Int i, j;
 	for (j = minY; j < maxY; j++)
 	{
@@ -238,7 +274,7 @@ W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorc
 			curVb->y = Y;
 			curVb->z = theZ;
 			curVb++;
-			m_curNumScorchVertices++;
+			numVertices++;
 		}
 	}
 	Int yOffset = maxX - minX;
@@ -272,7 +308,7 @@ W3DScorch::WriteScorchResult W3DScorch::writeScorchToBuffer(const TScorch& scorc
 				*curIb++ = startVertex + j * yOffset + i + 1;
 				*curIb++ = startVertex + j * yOffset + i + 1 + yOffset;
 			}
-			m_curNumScorchIndices += 6;
+			numIndices += 6;
 		}
 	}
 

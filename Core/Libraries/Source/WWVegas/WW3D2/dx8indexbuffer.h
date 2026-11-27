@@ -107,6 +107,7 @@ class DynamicIBAccessClass
 
 	friend DX8Wrapper;
 	friend SortingRendererClass;
+	friend class Renderer;
 
 	unsigned Type;
 	unsigned short IndexCount;
@@ -114,12 +115,15 @@ class DynamicIBAccessClass
 	IndexBufferClass* IndexBuffer;
 
 	void Allocate_Sorting_Dynamic_Buffer();
-	void Allocate_DX8_Dynamic_Buffer();
+	void Allocate_DX8_Dynamic_Buffer(bool assert_on_failure = true);
+	void Retire_DX8_Buffer();
 
 public:
 	enum { MAX_INDEX_COUNT = 0xffff }; ///< index_count is an unsigned short
 
 	DynamicIBAccessClass(unsigned short type, unsigned short index_count);
+	// Checked GPU reservation with 16-bit indices.
+	explicit DynamicIBAccessClass(unsigned short index_count);
 	~DynamicIBAccessClass();
 
 	unsigned Get_Type() const { return Type; }
@@ -165,7 +169,8 @@ public:
 		USAGE_NPATCHES=4
 	};
 
-	DX8IndexBufferClass(unsigned short index_count,UsageType usage=USAGE_DEFAULT);
+	DX8IndexBufferClass(unsigned short index_count, UsageType usage=USAGE_DEFAULT);
+	DX8IndexBufferClass(unsigned short index_count, UsageType usage, bool assert_on_failure);
 	virtual ~DX8IndexBufferClass() override;
 
 	void Copy(unsigned int* indices,unsigned start_index,unsigned index_count);
