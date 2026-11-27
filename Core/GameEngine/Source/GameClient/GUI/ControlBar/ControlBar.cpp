@@ -926,6 +926,7 @@ void CommandSet::parseCommandButton( INI* ini, void *instance, void *store, cons
 //-------------------------------------------------------------------------------------------------
 CommandSet::CommandSet(const AsciiString& name) :
 	m_name(name),
+	m_occupiedSlots(0),
 	m_next(nullptr)
 {
 	for( Int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
@@ -934,11 +935,31 @@ CommandSet::CommandSet(const AsciiString& name) :
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+void CommandSet::friend_refreshOccupiedSlots()
+{
+	static_assert(MAX_COMMANDS_PER_SET <= 32, "Command slot mask too small");
+	m_occupiedSlots = 0;
+	for (Int i = 0; i < MAX_COMMANDS_PER_SET; ++i)
+		if (m_command[i])
+			m_occupiedSlots |= 1u << i;
+}
+
+Int CommandSet::getNextPotentiallyOccupiedSlot(Int first) const
+{
+	// Scripts may add a command to an empty slot or remove an existing one.
+	// Recheck the live override store at each step; use the original scan when nonempty.
+	if (TheGameLogic && TheGameLogic->hasControlBarOverrides())
+		return first;
+	while (first < MAX_COMMANDS_PER_SET && !(m_occupiedSlots & (1u << first)))
+		++first;
+	return first;
+}
+
 const CommandButton* CommandSet::getCommandButton(Int i) const
 {
 	const CommandButton* button;
   // Check for TheGameLogic == null, cause it is in Worldbuilder, and wb gets command bar info. jba.
-	if (TheGameLogic && TheGameLogic->findControlBarOverride(m_name, i, button))
+	if (TheGameLogic && TheGameLogic->hasControlBarOverrides() && TheGameLogic->findControlBarOverride(m_name, i, button))
 		return button;
 
 	return m_command[i];
@@ -2164,6 +2185,7 @@ CommandButton *ControlBar::newCommandButtonOverride( CommandButton *buttonToOver
 
 	// parse the ini definition
 	ini->initFromINI( commandSet, commandSet->friend_getFieldParse() );
+	commandSet->friend_refreshOccupiedSlots();
 
 }
 

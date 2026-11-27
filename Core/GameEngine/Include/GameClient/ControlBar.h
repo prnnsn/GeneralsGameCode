@@ -435,6 +435,8 @@ public:
 
 	const AsciiString& getName() const { return m_name; }
 	const CommandButton* getCommandButton(Int i) const;
+	Int getNextPotentiallyOccupiedSlot(Int first) const;
+	void friend_refreshOccupiedSlots();
 
 	// only for the control bar.
 	CommandSet* friend_getNext() { return m_next; }
@@ -447,6 +449,7 @@ private:
 	static void parseCommandButton( INI* ini, void *instance, void *store, const void *userData );
 
 	AsciiString m_name;															  ///< name of this command set
+	UnsignedInt m_occupiedSlots;
 	const CommandButton *m_command[ MAX_COMMANDS_PER_SET ]; ///< the set of command buttons that make this set
 
 	CommandSet *m_next;
