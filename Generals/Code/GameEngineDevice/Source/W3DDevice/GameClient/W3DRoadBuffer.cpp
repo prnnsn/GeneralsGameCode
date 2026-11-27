@@ -158,8 +158,8 @@ RoadType::~RoadType()
 void RoadType::applyTexture()
 {
  	W3DShaderManager::setTexture(0,m_roadTexture);
-	DX8Wrapper::Set_Index_Buffer(m_indexRoad,0);
-	DX8Wrapper::Set_Vertex_Buffer(m_vertexRoad);
+	Renderer::Set_Index_Buffer(m_indexRoad,0);
+	Renderer::Set_Vertex_Buffer(m_vertexRoad);
 }
 
 
@@ -3284,8 +3284,8 @@ void W3DRoadBuffer::drawRoads(CameraClass * camera, TextureClass *cloudTexture, 
 
 #if 0
 	// Need to use a separate set of index & vertex buffers for this.  jba.
-	DX8Wrapper::Set_Index_Buffer(nullptr,0);
-	DX8Wrapper::Set_Vertex_Buffer(nullptr);
+	Renderer::Set_Index_Buffer(nullptr,0);
+	Renderer::Set_Vertex_Buffer(nullptr);
 	if (pDynamicLightsIterator) {
 		for (i=0; i<m_maxRoadTypes; i++) {
 			m_curRoadType = i;
