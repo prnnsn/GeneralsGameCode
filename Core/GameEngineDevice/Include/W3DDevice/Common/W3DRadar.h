@@ -86,7 +86,7 @@ protected:
 	void drawIcons( Int pixelX, Int pixelY, Int width, Int height );	///< draw all of the radar icons
 	void updateObjectTexture(TextureClass *texture);
 	static Bool canRenderObject( const RadarObject *rObj, const Player *localPlayer );
-	void renderObjectList( const RadarObject *listHead, TextureClass *texture );
+	void renderObjectList( const RadarObject *listHead, const RenderTextures::SurfaceWriteView &view );
 	void interpolateColorForHeight( RGBColor *color,
 																	Real height,
 																	Real hiZ,
