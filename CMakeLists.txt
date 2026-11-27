@@ -112,3 +112,8 @@ endif()
 
 feature_summary(WHAT ENABLED_FEATURES DESCRIPTION "Enabled features:")
 feature_summary(WHAT DISABLED_FEATURES DESCRIPTION "Disabled features:")
+
+option(RTS_BUILD_DX11_SMOKE "Build isolated D3D11 smoke executable" OFF)
+if(RTS_BUILD_DX11_SMOKE)
+    add_subdirectory(Tests/DX11Smoke)
+endif()
