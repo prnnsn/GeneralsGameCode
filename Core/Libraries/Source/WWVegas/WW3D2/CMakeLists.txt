@@ -14,6 +14,8 @@ set(WW3D2_SRC
     assetstatus.cpp
     assetstatus.h
     Backend/DX8Backend.cpp
+    Backend/DX8ManagedBufferWrite.h
+    Backend/DX8StreamingBufferWrite.h
     Backend/DX8VertexLayout.h
     bitmaphandler.cpp
     bitmaphandler.h
