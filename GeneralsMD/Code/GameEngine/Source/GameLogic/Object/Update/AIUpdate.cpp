@@ -4931,7 +4931,7 @@ void AIUpdateInterface::privateCommandButton( const CommandButton *commandButton
 			const CommandSet *commandSet = TheControlBar->findCommandSet( owner->getCommandSetString() );
 			if( commandSet )
 			{
-				for( int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
+				for (Int i = commandSet->getNextPotentiallyOccupiedSlot(0); i < MAX_COMMANDS_PER_SET; i = commandSet->getNextPotentiallyOccupiedSlot(i + 1))
 				{
 					const CommandButton *aCommandButton = commandSet->getCommandButton(i);
 					if( commandButton == aCommandButton )
@@ -4986,7 +4986,7 @@ void AIUpdateInterface::privateCommandButtonPosition( const CommandButton *comma
 			const CommandSet *commandSet = TheControlBar->findCommandSet( owner->getCommandSetString() );
 			if( commandSet )
 			{
-				for( int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
+				for (Int i = commandSet->getNextPotentiallyOccupiedSlot(0); i < MAX_COMMANDS_PER_SET; i = commandSet->getNextPotentiallyOccupiedSlot(i + 1))
 				{
 					const CommandButton *aCommandButton = commandSet->getCommandButton(i);
 					if( commandButton == aCommandButton )
@@ -5036,7 +5036,7 @@ void AIUpdateInterface::privateCommandButtonObject( const CommandButton *command
 		const CommandSet *commandSet = TheControlBar->findCommandSet( owner->getCommandSetString() );
 		if( commandSet )
 		{
-			for( int i = 0; i < MAX_COMMANDS_PER_SET; i++ )
+			for (Int i = commandSet->getNextPotentiallyOccupiedSlot(0); i < MAX_COMMANDS_PER_SET; i = commandSet->getNextPotentiallyOccupiedSlot(i + 1))
 			{
 				const CommandButton *aCommandButton = commandSet->getCommandButton(i);
 				if( commandButton == aCommandButton )

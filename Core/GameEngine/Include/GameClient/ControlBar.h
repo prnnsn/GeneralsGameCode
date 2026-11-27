@@ -37,6 +37,7 @@
 #include "GameClient/Color.h"
 #include "GameClient/RadiusDecal.h"
 #include <deque>
+#include <map>
 #include <vector>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
@@ -434,6 +435,8 @@ public:
 
 	const AsciiString& getName() const { return m_name; }
 	const CommandButton* getCommandButton(Int i) const;
+	Int getNextPotentiallyOccupiedSlot(Int first) const;
+	void friend_refreshOccupiedSlots();
 
 	// only for the control bar.
 	CommandSet* friend_getNext() { return m_next; }
@@ -446,6 +449,7 @@ private:
 	static void parseCommandButton( INI* ini, void *instance, void *store, const void *userData );
 
 	AsciiString m_name;															  ///< name of this command set
+	UnsignedInt m_occupiedSlots;
 	const CommandButton *m_command[ MAX_COMMANDS_PER_SET ]; ///< the set of command buttons that make this set
 
 	CommandSet *m_next;
@@ -909,6 +913,11 @@ protected:
 	std::deque<CustomRadiusCursorDefinition> m_customRadiusCursors;
 	std::vector<RadiusDecalTemplate> m_defaultRadiusCursorTemplates;
 
+	typedef std::map<AsciiString, CommandButton*> CommandButtonNameIndex;
+	typedef std::map<AsciiString, CommandSet*> CommandSetNameIndex;
+	CommandButtonNameIndex m_commandButtonNameIndex;
+	CommandSetNameIndex m_commandSetNameIndex;
+	Bool m_commandNameIndexesReady;
 	CommandButton *m_commandButtons;							///< list of possible commands to have
 	CommandSet *m_commandSets;										///< list of all command sets defined
 	ControlBarSchemeManager *m_controlBarSchemeManager;		///< The Scheme singleton
