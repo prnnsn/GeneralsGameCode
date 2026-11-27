@@ -228,6 +228,24 @@ void Renderer::Apply_Render_State_Changes()
     DX8Wrapper::Apply_Render_State_Changes();
 }
 
+bool Renderer::Try_Begin_Terrain_Depth_Bias(unsigned strength)
+{
+    if (strength == 0 || strength > 16 || !DX8Wrapper::_Get_D3D_Device8() ||
+        !DX8Wrapper::Get_Current_Caps()->Support_ZBias())
+        return false;
+
+    if (DX8Wrapper::Get_DX8_Render_State(D3DRS_ZBIAS) != 0)
+        return false;
+
+    DX8Wrapper::Set_DX8_Render_State(D3DRS_ZBIAS, strength);
+    return true;
+}
+
+void Renderer::End_Terrain_Depth_Bias()
+{
+    DX8Wrapper::Set_DX8_Render_State(D3DRS_ZBIAS, 0);
+}
+
 void Renderer::Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
                               unsigned short min_vertex_index, unsigned short vertex_count)
 {
