@@ -2,7 +2,7 @@
 
 Owner decision: 2026-11-27. Follow [AGENTS.md](../AGENTS.md) and the existing contribution policies.
 This is a planning snapshot, not a claim that untested features work. Refresh main, PRs and profiles before choosing work.
-Baseline main: `ed9ae439d2eb0c4e8fa895cdab3b1e63ca437a59`.
+Baseline main: `f83baba8079d7206527ab313d37c439cc5d6de2e`.
 C/R = relative engineering complexity / regression risk (1–5), not measurements.
 
 ## Completed and ongoing work
@@ -23,7 +23,10 @@ C/R = relative engineering complexity / regression risk (1–5), not measurement
 | 13a.5, 13a.6a, 13a.7 | Filters, scoped terrain bias, road/scorch bindings | Merged #83–85 |
 | 13b.1a–b | Resource contract and reproducible corrected inventory | Merged #86, #87, #91 |
 | 13b.2a–c | Buffer descriptors, first non-streaming and streaming consumers | Merged #88–90; remaining consumers pending |
-| 13b.3a–b | Checked 2D layout and eligible packed DDS path | Merged #92; other paths pending |
+| 13b.3a–b | Checked 2D layout and eligible packed DDS path | Merged #92 |
+| 13b.3c | CPU-owned packed DDS staging; render-thread completion (soft 16 MiB pending threshold) | Merged #97 |
+| 13b.3d | Ordinary 2D all-mip map/unmap through Renderer/DX8, with rollback | Merged #99; task still owns borrowed native resource |
+| 13b.2 documentation | Complete buffer adapter implementation notes | Merged #98 |
 
 The reports in #30 and #70 do not justify lowering the default quad worker threshold or parallelizing static shadow strips. #75 identifies small dynamic buffer requests as a candidate for optimization after DX11, not a migration prerequisite.
 
@@ -54,7 +57,32 @@ The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–
 | 13b.4 | Render targets, depth/stencil, viewport, copies, screenshots and device-reset/resource recreation | 4/4 |
 | 13b.5 | Migrate remaining resource consumers in both titles and editors; compile/reference tests for ownership and recovery | 4/3 |
 
-Next implementation briefs: [13b.3c #93](https://github.com/prnnsn/GeneralsGameCode/pull/93) (checked surface access), [13b.3d #94](https://github.com/prnnsn/GeneralsGameCode/pull/94) (first terrain update consumer, depends on 13b.3c), and independent [13c.1 #95](https://github.com/prnnsn/GeneralsGameCode/pull/95) (isolated device smoke test). A future 13b.3e will address texture ownership/loading after these results; remaining cube/volume, format and surface paths require explicit review. Briefs are not implementations. Implement resource interfaces only after lifetime and format semantics are reviewed. Existing W3D resources are still DX8-backed; adding forwarding methods alone is not enough.
+Implement resource interfaces only after lifetime and format semantics are reviewed. Existing W3D resources are still DX8-backed; forwarding methods alone are not enough.
+
+### 13b.3 — authoritative slice numbering and dependencies
+
+| ID | Scope | C/R | Dependency / state |
+| --- | --- | --- | --- |
+| 13b.3a | Checked 2D texture layout | 2/2 | Merged #92 |
+| 13b.3b | Eligible packed DDS loading | 3/3 | Merged #92 |
+| 13b.3c | Owned packed DDS staging and render-thread copy | 3/3 | Merged #97 |
+| 13b.3d | Ordinary all-mip map/unmap and failure rollback | 3/3 | Merged #99 |
+| 13b.3e | Retained single-mip surface access, scoped mapping; not a repeat of #99 | 3/2 | #93 revised draft; depends on #99 |
+| 13b.3f | First terrain atlas update using checked pitch and legacy mip/LOD policy | 3/3 | #94 revised draft; depends on #93 |
+| 13b.3g | Ordinary 2D allocation, ownership, publication and release | 4/3 | #100 draft; depends on #99, coordinate shared interface with #93/#94 |
+| 13b.3h | Remaining 2D CPU staging/upload paths (TGA, tint, conversion, synchronous load where applicable); preserve fallback and queue bounds | 4/3 | Planned, refine after #100 |
+| 13b.3i | Cube/volume descriptors, subresource/face/slice layout, staging, ownership and mapping; preserve format semantics | 4/4 | Planned, separate reviewed slices after 2D contract |
+| 13b.3j | Remaining 2D/surface/texture consumers, partial rects, format/LOD and legacy bridge audit | 4/3 | Planned; coordinate 13b.4/5 |
+
+#93/#94 were previously numbered 13b.3c/d; those numbers now belong exclusively to merged #97/#99. Existing PR URLs are retained; revised files use e/f. #99 exposes a borrowed RenderTexture2DHandle with void* value; this is transitional and is not the final owning backend-neutral texture contract. #100 must keep compatibility bridges explicit. Do not redo merged work or report all texture paths as migrated.
+
+### Execution lanes and review gates
+
+- Resource lane: #93 -> #94; #100 can be investigated in parallel with #93 and implemented with shared Renderer changes coordinated. Continue 13b.3h–j as contracts stabilize. After 13b.3, split 13b.4 into target/depth ownership and binding, copy/readback and editor preview, reset/recreation and cursor paths. Split 13b.5 into remaining VB/IB, texture/state consumers and native escape audit; confirm both games and editors. Do not declare Phase B complete based on the first consumers alone.
+- Device lane: independent #95 (13c.1) can start immediately. After its device smoke test, 13c.2 may start with isolated buffer tests once the corresponding neutral buffer contract is accepted, then texture/target slices after their respective ownership contracts. Do not select DX11 for live gameplay until required resource/state/shader paths are complete and compatibility gates pass.
+- State lane: 13a.6b/c and 13a.8/9/10 remain open; coordinate with 13d.1/2 rather than duplicating incompatible APIs. Preserve DX8 cached/deferred behavior; use verified neutral semantics for later backend. Only open narrowly scoped implementation requests after reviewing relevant call sites.
+- Baseline validation as reported by #99: both games and both World Builders Win32 Release built, both Google Test suites passed 284 each, mod test confirmed. These are reported PR results, not a fresh integrated-main build or matched network CRC result. Keep DX8 reference executable, test asset provenance and rollback.
+- No automatic merge. Before starting a brief, refresh main and the live PR list. Old branch names may remain to retain existing PR identity; rebase/merge latest main into working branch before implementation and resolve shared declarations.
 
 ## Phase C — actual DX11 backend
 
