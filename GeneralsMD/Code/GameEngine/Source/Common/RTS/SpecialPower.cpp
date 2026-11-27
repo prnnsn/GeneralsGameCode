@@ -162,6 +162,7 @@ void SpecialPowerStore::parseSpecialPowerDefinition( INI *ini )
 			specialPower->friend_setNameAndID(name, ++TheSpecialPowerStore->m_nextSpecialPowerID);
 			specialPower->markAsOverride();
 			TheSpecialPowerStore->m_specialPowerTemplates.push_back(specialPower);
+			TheSpecialPowerStore->m_specialPowerByName.insert(std::make_pair(name, specialPower));
 		}
 	}
 	else
@@ -178,6 +179,7 @@ void SpecialPowerStore::parseSpecialPowerDefinition( INI *ini )
 				*specialPower = *defaultTemplate;
 			specialPower->friend_setNameAndID(name, ++TheSpecialPowerStore->m_nextSpecialPowerID);
 			TheSpecialPowerStore->m_specialPowerTemplates.push_back(specialPower);
+			TheSpecialPowerStore->m_specialPowerByName.insert(std::make_pair(name, specialPower));
 		}
 	}
 
@@ -251,6 +253,7 @@ SpecialPowerStore::SpecialPowerStore()
 SpecialPowerStore::~SpecialPowerStore()
 {
 
+	m_specialPowerByName.clear();
 	// delete all templates
 	for( size_t i = 0; i < m_specialPowerTemplates.size(); ++i )
 		deleteInstance(m_specialPowerTemplates[ i ]);
@@ -268,12 +271,8 @@ SpecialPowerStore::~SpecialPowerStore()
 SpecialPowerTemplate* SpecialPowerStore::findSpecialPowerTemplatePrivate( AsciiString name )
 {
 
-	// search the template list for matching name
-	for( size_t i = 0; i < m_specialPowerTemplates.size(); ++i )
-		if( m_specialPowerTemplates[ i ]->getName() == name )
-			return m_specialPowerTemplates[ i ];
-
-	return nullptr;  // not found
+	SpecialPowerNameMap::const_iterator it = m_specialPowerByName.find(name);
+	return it != m_specialPowerByName.end() ? it->second : nullptr;
 
 }
 
@@ -282,6 +281,14 @@ SpecialPowerTemplate* SpecialPowerStore::findSpecialPowerTemplatePrivate( AsciiS
 //-------------------------------------------------------------------------------------------------
 const SpecialPowerTemplate *SpecialPowerStore::findSpecialPowerTemplateByID( UnsignedInt id )
 {
+	// IDs normally follow insertion order; reset can leave gaps.
+	if (id != 0 && id <= m_specialPowerTemplates.size())
+	{
+		const SpecialPowerTemplate* candidate = m_specialPowerTemplates[id - 1];
+		if (candidate->getID() == id)
+			return candidate;
+	}
+
 
 	// search the template list for matching name
 	for( size_t i = 0; i < m_specialPowerTemplates.size(); ++i )
@@ -362,6 +369,7 @@ Bool SpecialPowerStore::canUseSpecialPower( Object *obj, const SpecialPowerTempl
 //-------------------------------------------------------------------------------------------------
 void SpecialPowerStore::reset()
 {
+	m_specialPowerByName.clear();
 	for (SpecialPowerTemplatePtrVector::iterator it = m_specialPowerTemplates.begin(); it != m_specialPowerTemplates.end(); /*++it*/)
 	{
 		SpecialPowerTemplate* si = *it;
@@ -372,6 +380,8 @@ void SpecialPowerStore::reset()
 		}
 		else
 		{
+			// Preserve first-match vector order, including after overrides.
+			m_specialPowerByName.insert(std::make_pair(si->getName(), si));
 			++it;
 		}
 	}
