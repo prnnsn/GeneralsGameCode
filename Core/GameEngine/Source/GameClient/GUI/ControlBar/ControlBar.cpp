@@ -75,7 +75,6 @@
 #include "GameClient/GadgetStaticText.h"
 #include "GameClient/GadgetTextEntry.h"
 #include "GameClient/InGameUI.h"
-#include <limits>
 #include "GameClient/WindowVideoManager.h"
 #include "GameClient/ControlBarResizer.h"
 #include "GameClient/GadgetListBox.h"
@@ -84,6 +83,8 @@
 #include "GameClient/GUICallbacks.h"
 
 #include "GameNetwork/GameInfo.h"
+
+#include <limits>
 
 
 // PUBLIC /////////////////////////////////////////////////////////////////////////////////////////
@@ -107,35 +108,35 @@ static void parseRadiusCursorType(INI* ini, void*, void* store, const void*)
 	{
 		if (stricmp(TheRadiusCursorNames[i], name) == 0)
 		{
-			*static_cast<RadiusCursorType*>(store) = static_cast<RadiusCursorType>(i);
+			*static_cast<Int*>(store) = i;
 			return;
 		}
 	}
 
-	const RadiusCursorType type = TheControlBar ? TheControlBar->findCustomRadiusCursorType(name) : RADIUSCURSOR_NONE;
-	if (type == RADIUSCURSOR_NONE)
+	const Int cursorId = TheControlBar ? TheControlBar->findCustomRadiusCursorId(name) : RADIUSCURSOR_NONE;
+	if (cursorId == RADIUSCURSOR_NONE)
 	{
 		DEBUG_CRASH(("Unknown RadiusCursorType '%s'", name));
 		throw INI_INVALID_DATA;
 	}
-	*static_cast<RadiusCursorType*>(store) = type;
+	*static_cast<Int*>(store) = cursorId;
 }
 
-RadiusCursorType ControlBar::findCustomRadiusCursorType(const char* name) const
+Int ControlBar::findCustomRadiusCursorId(const char* name) const
 {
 	for (std::size_t i = 0; i < m_customRadiusCursors.size(); ++i)
 	{
 		if (stricmp(m_customRadiusCursors[i].name.str(), name) == 0)
-			return static_cast<RadiusCursorType>(RADIUSCURSOR_COUNT + static_cast<Int>(i));
+			return RADIUSCURSOR_COUNT + static_cast<Int>(i);
 	}
 	return RADIUSCURSOR_NONE;
 }
 
-const RadiusDecalTemplate* ControlBar::findCustomRadiusCursorTemplate(RadiusCursorType type) const
+const RadiusDecalTemplate* ControlBar::findCustomRadiusCursorTemplate(Int cursorId) const
 {
-	if (type < RADIUSCURSOR_COUNT)
+	if (cursorId < RADIUSCURSOR_COUNT)
 		return nullptr;
-	const std::size_t index = static_cast<std::size_t>(static_cast<Int>(type) - RADIUSCURSOR_COUNT);
+	const std::size_t index = static_cast<std::size_t>(cursorId - RADIUSCURSOR_COUNT);
 	return index < m_customRadiusCursors.size() ? &m_customRadiusCursors[index].decal : nullptr;
 }
 
@@ -151,31 +152,38 @@ RadiusDecalTemplate& ControlBar::defineCustomRadiusCursor(const char* name)
 		}
 	}
 
-	const RadiusCursorType existing = findCustomRadiusCursorType(name);
+	const Int existing = findCustomRadiusCursorId(name);
 	if (existing != RADIUSCURSOR_NONE)
-		return m_customRadiusCursors[static_cast<Int>(existing) - RADIUSCURSOR_COUNT].decal;
+		return m_customRadiusCursors[existing - RADIUSCURSOR_COUNT].decal;
 
 	if (m_customRadiusCursors.size() >= static_cast<std::size_t>((std::numeric_limits<Int>::max)() - RADIUSCURSOR_COUNT))
 		throw INI_INVALID_DATA;
 
-	m_customRadiusCursors.emplace_back();
-	m_customRadiusCursors.back().name = name;
+	CustomRadiusCursorDefinition definition;
+	definition.name = name;
+	m_customRadiusCursors.push_back(definition);
 	return m_customRadiusCursors.back().decal;
 }
 
 void INI::parseRadiusCursorDefinition(INI* ini)
 {
-	const char* name = ini->getNextToken();
+	const AsciiString name = ini->getNextToken();
 	if (!TheControlBar)
 		throw INI_INVALID_PARAMS;
 
-	RadiusDecalTemplate& decal = TheControlBar->defineCustomRadiusCursor(name);
+	const Int cursorId = TheControlBar->findCustomRadiusCursorId(name.str());
+	const RadiusDecalTemplate* previous = TheControlBar->findCustomRadiusCursorTemplate(cursorId);
+	RadiusDecalTemplate decal;
+	if (previous)
+		decal = *previous;
+
 	RadiusDecalTemplate::parseRadiusDecalTemplate(ini, TheControlBar, &decal, nullptr);
 	if (!decal.valid())
 	{
-		DEBUG_CRASH(("Custom RadiusCursor requires a Texture"));
+		DEBUG_CRASH(("Custom RadiusCursor '%s' requires a Texture", name.str()));
 		throw INI_INVALID_DATA;
 	}
+	TheControlBar->defineCustomRadiusCursor(name.str()) = decal;
 }
 
 const FieldParse CommandButton::s_commandButtonFieldParseTable[] =
@@ -1160,6 +1168,11 @@ void ControlBar::init()
 	m_controlBarSchemeManager = NEW ControlBarSchemeManager;
 	m_controlBarSchemeManager->init();
 
+	// Map INIs can add or override definitions after this initial load.
+	m_defaultRadiusCursorTemplates.clear();
+	for (std::size_t i = 0; i < m_customRadiusCursors.size(); ++i)
+		m_defaultRadiusCursorTemplates.push_back(m_customRadiusCursors[i].decal);
+
 	//Added this check because the builder uses the ControlBar, but doesn't care about
 	//the GUI.
 	if( TheWindowManager )
@@ -1467,6 +1480,11 @@ void ControlBar::reset()
 
 		button = nextButton;
 	}
+	// Restore global templates and discard definitions from the previous map.
+	m_customRadiusCursors.resize(m_defaultRadiusCursorTemplates.size());
+	for (std::size_t i = 0; i < m_defaultRadiusCursorTemplates.size(); ++i)
+		m_customRadiusCursors[i].decal = m_defaultRadiusCursorTemplates[i];
+
 	if(TheTransitionHandler)
 		TheTransitionHandler->remove("ControlBarArrow");
 	m_genArrow = nullptr;
