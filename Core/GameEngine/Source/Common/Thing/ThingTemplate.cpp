@@ -83,6 +83,9 @@ const Int USE_EXP_VALUE_FOR_SKILL_VALUE = -999;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 AudioEventRTS ThingTemplate::s_audioEventNoSound;
+// A global revision conservatively invalidates cached selections across template
+// creation, destruction, copying and INI changes, including override resets.
+UnsignedInt64 ThingTemplate::s_armorTemplateRevision = 0;
 
 static void parseKindOfFromINI(INI* ini, void* instance, void *store, const void* userData)
 {
@@ -924,6 +927,7 @@ void ArmorTemplateSet::parseArmorTemplateSet( INI* ini )
 void ThingTemplate::parseArmorTemplateSet( INI* ini, void *instance, void * /*store*/, const void* /*userData*/ )
 {
 	ThingTemplate* self = (ThingTemplate*)instance;
+	++s_armorTemplateRevision;
 	if (self->m_armorCopiedFromDefault == TRUE)
 	{
 		self->m_armorCopiedFromDefault = FALSE;
@@ -1013,6 +1017,7 @@ void ThingTemplate::parseMaxSimultaneous(INI *ini, void *instance, void *store, 
 ThingTemplate::ThingTemplate() :
 	m_geometryInfo(GEOMETRY_SPHERE, FALSE, 1, 1, 1)
 {
+	++s_armorTemplateRevision;
 	m_moduleParsingMode = MODULEPARSE_NORMAL;
 	m_reskinnedFrom = nullptr;
 	m_radarPriority = RADAR_PRIORITY_INVALID;
@@ -1255,7 +1260,11 @@ void ThingTemplate::copyFrom(const ThingTemplate* that)
 	UnsignedShort id = this->m_templateID;
 	AsciiString name = this->m_nameString;
 
+	++s_armorTemplateRevision;
 	*this = *that;
+	// NoCopy prevents copying the source finder, but an existing destination
+	// can still hold cached pointers into its previous armor-set vector.
+	m_armorTemplateSetFinder.clear();
 
 	this->m_nextThingTemplate = next;
 	this->m_templateID = id;
@@ -1275,6 +1284,7 @@ void ThingTemplate::setCopiedFromDefault()
 //-------------------------------------------------------------------------------------------------
 ThingTemplate::~ThingTemplate()
 {
+	++s_armorTemplateRevision;
 	// note, we don't need to take any special action for Armor/WeaponSets...
 	// though it is just a list of 'raw' pointers, we don't have ownership of 'em,
 	// and so we MUST NOT delete them

@@ -613,6 +613,8 @@ public:
 
 	const WeaponTemplateSet* findWeaponTemplateSet(const WeaponSetFlags& t) const;
 	const ArmorTemplateSet* findArmorTemplateSet(const ArmorSetFlags& t) const;
+	// Cache invalidation token only; never serialized or included in CRC.
+	static UnsignedInt64 getArmorTemplateRevision() { return s_armorTemplateRevision; }
 
 	// returns true iff we have at least one weaponset that contains a weapon.
 	// returns false if we have no weaponsets, or they are all empty.
@@ -667,6 +669,7 @@ private:
 	static const FieldParse s_objectFieldParseTable[];		///< the parse table
 	static const FieldParse s_objectReskinFieldParseTable[];		///< the parse table
 	static AudioEventRTS s_audioEventNoSound;
+	static UnsignedInt64 s_armorTemplateRevision;
 
 private:
 
