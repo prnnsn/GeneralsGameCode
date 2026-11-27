@@ -300,7 +300,7 @@ void BoxRenderObjClass::render_box(RenderInfoClass & rinfo,const Vector3 & cente
 		DX8Wrapper::Set_Index_Buffer(ibaccess,0);
 		DX8Wrapper::Set_Vertex_Buffer(vbaccess);
 
-		DX8Wrapper::Draw_Triangles(buffer_type,0,NUM_BOX_FACES,0,NUM_BOX_VERTS);
+		Renderer::Draw_Triangles(Renderer::DrawRoute::DynamicGpu,0,NUM_BOX_FACES,0,NUM_BOX_VERTS);
 	}
 }
 

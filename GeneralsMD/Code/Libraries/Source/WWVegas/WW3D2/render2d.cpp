@@ -694,7 +694,7 @@ void Render2DClass::Render()
 	}
 	else
 		DX8Wrapper::Set_Shader(Shader);
-	DX8Wrapper::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
+	Renderer::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
 
 	Renderer::Set_Transform(RenderTransform_View,view);
 	Renderer::Set_Transform(RenderTransform_Projection,proj);

@@ -170,6 +170,46 @@ public:
     static void Set_Texture_Mag_Filter(unsigned stage, TextureFilter filter);
     static void Set_Texture_Mip_Filter(unsigned stage, TextureFilter filter);
     static void Set_Texture_Max_Anisotropy(unsigned stage, unsigned level);
+    // Cached requests preserve the wrapper cache. Immediate requests preserve
+    // legacy raw-device calls (caller is responsible for cache invalidation).
+    enum class StateWrite { Cached, Immediate };
+    enum class Compare { Never, Less, Equal, LessEqual, Greater, NotEqual, GreaterEqual, Always };
+    enum class BlendFactor { Zero, One, SrcColor, InvSrcColor, SrcAlpha, InvSrcAlpha, DestAlpha, InvDestAlpha, DestColor, InvDestColor, SrcAlphaSat };
+    enum class Cull { None, Clockwise, CounterClockwise };
+    enum class StencilOp { Keep, Zero, Replace, IncrementSaturate, DecrementSaturate, Invert, IncrementWrap, DecrementWrap };
+    static void Set_Depth_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Depth_Write(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Depth_Test(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Source_Blend(BlendFactor value, StateWrite mode = StateWrite::Cached);
+    static void Set_Destination_Blend(BlendFactor value, StateWrite mode = StateWrite::Cached);
+    static void Set_Blend_Enable(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Test(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Reference(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Cull(Cull value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Enable(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Reference(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Read_Mask(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Write_Mask(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Fail(StencilOp value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Depth_Fail(StencilOp value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Pass(StencilOp value, StateWrite mode = StateWrite::Cached);
+
+    enum class TextureOperation { SelectArg1, Disable, Modulate, Add, BumpEnvMap, BumpEnvMapLuminance, Modulate2X, SelectArg2, AddSmooth, Subtract, BlendTextureAlpha, BlendCurrentAlpha, AddSigned, AddSigned2X, ModulateAlphaAddColor };
+    enum class TextureArgument { Diffuse, Texture, Current, Factor };
+    // Untracked stage writes preserve the legacy DX8CALL instrumentation and
+    // bypass the two-stage wrapper cache, unlike ordinary cached requests.
+    enum class TextureStageWrite { Cached, Untracked };
+    static void Set_Color_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Color_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Color_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Untracked_Passthrough_Coordinates(unsigned stage, unsigned coordinate_index);
+    static void Clear_Untracked_Texture(unsigned stage);
+
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
     // Scoped terrain bias uses legacy strength units, not a raw API constant.
@@ -178,6 +218,13 @@ public:
     static void End_Terrain_Depth_Bias();
     static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
                                unsigned short min_vertex_index, unsigned short vertex_count);
+
+    // Route preserves the legacy deferred CPU sorting vs immediate draw choice.
+    enum class DrawRoute { Gpu, CpuSorting, DynamicGpu, DynamicCpuSorting };
+    static void Draw_Triangles(DrawRoute route, unsigned short start_index, unsigned short polygon_count,
+                               unsigned short min_vertex_index, unsigned short vertex_count);
+    static void Draw_Strip(unsigned short start_index, unsigned short polygon_count,
+                           unsigned short min_vertex_index, unsigned short vertex_count);
 
     // Bind existing W3D buffer resources/access ranges; allocation and locking
     // remain in the resource layer. Preserve DX8 index offsets and stream defaults.

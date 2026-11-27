@@ -621,7 +621,7 @@ void Render2DClass::Render()
 	else
 		DX8Wrapper::Set_Shader(Shader);
 
-	DX8Wrapper::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
+	Renderer::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
 //	SphereClass sphere(Vector3(0.0f,0.0f,0.0f),0.0f);
 //	SortingRendererClass::Insert_Triangles(sphere,0,Indices.Count()/3,0,Vertices.Count());
 

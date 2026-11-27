@@ -1371,7 +1371,7 @@ void StreakRendererClass::RenderStreak
 		}
 		else
 		{
-			DX8Wrapper::Draw_Triangles(0,triangleIndex,0,vnum);
+			Renderer::Draw_Triangles(0,triangleIndex,0,vnum);
 		}
 
 	}

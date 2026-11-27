@@ -3343,26 +3343,26 @@ void W3DVolumetricShadowManager::renderStencilShadows()
 	m_pDev->SetVertexShader(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
 
 	// Use alpha blending to draw the transparent shadow
-    m_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, TRUE );
+    Renderer::Set_Blend_Enable(true, Renderer::StateWrite::Immediate);
 //  m_pDev->SetRenderState( D3DRS_SRCBLEND,  D3DBLEND_SRCALPHA );
 //  m_pDev->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
-		m_pDev->SetRenderState( D3DRS_SRCBLEND,  D3DBLEND_DESTCOLOR);
-		m_pDev->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_ZERO );
+		Renderer::Set_Source_Blend(Renderer::BlendFactor::DestColor, Renderer::StateWrite::Immediate);
+		Renderer::Set_Destination_Blend(Renderer::BlendFactor::Zero, Renderer::StateWrite::Immediate);
 
 
 	// Set stencil states
-    m_pDev->SetRenderState( D3DRS_ZENABLE,          TRUE );
-		m_pDev->SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+    Renderer::Set_Depth_Test(true, Renderer::StateWrite::Immediate);
+		Renderer::Set_Depth_Compare(Renderer::Compare::Always, Renderer::StateWrite::Immediate);
 
 	// Only write where stencil val >= 1 (count indicates # of shadows that
 	// overlap that pixel)
-    m_pDev->SetRenderState( D3DRS_STENCILENABLE, TRUE );
-    m_pDev->SetRenderState( D3DRS_STENCILFUNC, D3DCMP_LESSEQUAL );	//reference value is less or equal to stencil
-    m_pDev->SetRenderState( D3DRS_STENCILPASS, D3DSTENCILOP_KEEP );
+    Renderer::Set_Stencil_Enable(true, Renderer::StateWrite::Immediate);
+    Renderer::Set_Stencil_Compare(Renderer::Compare::LessEqual, Renderer::StateWrite::Immediate);	//reference value is less or equal to stencil
+    Renderer::Set_Stencil_Pass(Renderer::StencilOp::Keep, Renderer::StateWrite::Immediate);
 	//Upper bits of stencil could be used for storing occluded models which are player colored.  So we mask out those
 	//pixels and only use the lower bits for shadow calculations.
-	m_pDev->SetRenderState( D3DRS_STENCILMASK,     ~TheW3DShadowManager->getStencilShadowMask());
-    m_pDev->SetRenderState( D3DRS_STENCILREF,      0x1 );
+	Renderer::Set_Stencil_Read_Mask(~TheW3DShadowManager->getStencilShadowMask(), Renderer::StateWrite::Immediate);
+    Renderer::Set_Stencil_Reference(0x1, Renderer::StateWrite::Immediate);
 
 
 	m_pDev->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_FLAT);
@@ -3371,9 +3371,9 @@ void W3DVolumetricShadowManager::renderStencilShadows()
 		m_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, v, sizeof(_TRANSLITVERTEX));
 
 	m_pDev->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
-	m_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+	Renderer::Set_Blend_Enable(false, Renderer::StateWrite::Immediate);
 	// turn off the stencil buffer
-	m_pDev->SetRenderState( D3DRS_STENCILENABLE, FALSE );
+	Renderer::Set_Stencil_Enable(false, Renderer::StateWrite::Immediate);
 
 }
 
@@ -3423,10 +3423,10 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 		DX8Wrapper::Apply_Render_State_Changes();	//force update of view and projection matrices
 
 		// turn off z writing
-		m_pDev->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
-	  m_pDev->SetRenderState( D3DRS_ZENABLE,          TRUE );
-		m_pDev->SetRenderState(D3DRS_ZWRITEENABLE , FALSE);
-		m_pDev->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+		Renderer::Set_Depth_Compare(Renderer::Compare::LessEqual, Renderer::StateWrite::Immediate);
+	  Renderer::Set_Depth_Test(true, Renderer::StateWrite::Immediate);
+		Renderer::Set_Depth_Write(false, Renderer::StateWrite::Immediate);
+		Renderer::Set_Alpha_Test(false, Renderer::StateWrite::Immediate);
 		m_pDev->SetRenderState(D3DRS_FOGENABLE, FALSE);
 
 
@@ -3448,11 +3448,11 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 		DWORD oldColorWriteEnable=0x12345678;
 
 	#ifdef SV_DEBUG
-		m_pDev->SetRenderState(D3DRS_ALPHABLENDENABLE , TRUE);
-		m_pDev->SetRenderState( D3DRS_STENCILENABLE, FALSE );
-		m_pDev->SetRenderState( D3DRS_SRCBLEND, /*D3DBLEND_DESTCOLOR*/D3DBLEND_ONE );
-		m_pDev->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_ZERO );
-		m_pDev->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+		Renderer::Set_Blend_Enable(true, Renderer::StateWrite::Immediate);
+		Renderer::Set_Stencil_Enable(false, Renderer::StateWrite::Immediate);
+		Renderer::Set_Source_Blend(Renderer::BlendFactor::One, Renderer::StateWrite::Immediate);
+		Renderer::Set_Destination_Blend(Renderer::BlendFactor::Zero, Renderer::StateWrite::Immediate);
+		Renderer::Set_Depth_Compare(Renderer::Compare::LessEqual, Renderer::StateWrite::Immediate);
 	#else
 		//disable writes to color buffer
 		if (DX8Wrapper::Get_Current_Caps()->Get_DX8_Caps().PrimitiveMiscCaps & D3DPMISCCAPS_COLORWRITEENABLE)
@@ -3462,11 +3462,11 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 		else
 		{
 			//device does not support disabling writes to color buffer so fake it through alpha blending
-			m_pDev->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_ZERO );
-			m_pDev->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_ONE );
-			m_pDev->SetRenderState(D3DRS_ALPHABLENDENABLE , TRUE);
+			Renderer::Set_Source_Blend(Renderer::BlendFactor::Zero, Renderer::StateWrite::Immediate);
+			Renderer::Set_Destination_Blend(Renderer::BlendFactor::One, Renderer::StateWrite::Immediate);
+			Renderer::Set_Blend_Enable(true, Renderer::StateWrite::Immediate);
 		}
-		m_pDev->SetRenderState( D3DRS_STENCILENABLE, TRUE );
+		Renderer::Set_Stencil_Enable(true, Renderer::StateWrite::Immediate);
 	#endif
 		//Any pixels with stencil already set to 128 contains a potential occluder.  If this pixels also has any of the player
 		//color stencil bits also set, it means that it's an occluded player color and we need to NOT render shadows here.  We
@@ -3474,19 +3474,19 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 		//If the value of just the potential occluder bit is >= than the combined bits, then we know none of the player color
 		//bits were set and it's okay to render shadow.
 		if (TheW3DShadowManager->getStencilShadowMask() == 0x80808080)
-			m_pDev->SetRenderState( D3DRS_STENCILFUNC,     D3DCMP_NOTEQUAL );	//in this mode, MSB indicates occluded player pixels.
+			Renderer::Set_Stencil_Compare(Renderer::Compare::NotEqual, Renderer::StateWrite::Immediate);	//in this mode, MSB indicates occluded player pixels.
 		else
-			m_pDev->SetRenderState( D3DRS_STENCILFUNC,     D3DCMP_GREATEREQUAL );	//in this mode, multiple bits indicate occluded player pixels.
-		m_pDev->SetRenderState( D3DRS_STENCILREF,      0x80808080 );			//isolate MSB, it's used to indicate pixels containing potential occluders.
-		m_pDev->SetRenderState( D3DRS_STENCILMASK,     TheW3DShadowManager->getStencilShadowMask());	//isolate upper bits containing PotentialOccluderBit|PlayerColorBits
-		m_pDev->SetRenderState( D3DRS_STENCILWRITEMASK,0xffffffff );
-		m_pDev->SetRenderState( D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP );
-		m_pDev->SetRenderState( D3DRS_STENCILFAIL,  D3DSTENCILOP_KEEP );
-		m_pDev->SetRenderState( D3DRS_STENCILPASS,  D3DSTENCILOP_INCR );
+			Renderer::Set_Stencil_Compare(Renderer::Compare::GreaterEqual, Renderer::StateWrite::Immediate);	//in this mode, multiple bits indicate occluded player pixels.
+		Renderer::Set_Stencil_Reference(0x80808080, Renderer::StateWrite::Immediate);			//isolate MSB, it's used to indicate pixels containing potential occluders.
+		Renderer::Set_Stencil_Read_Mask(TheW3DShadowManager->getStencilShadowMask(), Renderer::StateWrite::Immediate);	//isolate upper bits containing PotentialOccluderBit|PlayerColorBits
+		Renderer::Set_Stencil_Write_Mask(0xffffffff, Renderer::StateWrite::Immediate);
+		Renderer::Set_Stencil_Depth_Fail(Renderer::StencilOp::Keep, Renderer::StateWrite::Immediate);
+		Renderer::Set_Stencil_Fail(Renderer::StencilOp::Keep, Renderer::StateWrite::Immediate);
+		Renderer::Set_Stencil_Pass(Renderer::StencilOp::IncrementWrap, Renderer::StateWrite::Immediate);
 
 		m_pDev->SetVertexShader(SHADOW_DYNAMIC_VOLUME_FVF);
 
-		m_pDev->SetRenderState(D3DRS_CULLMODE,D3DCULL_CW);
+		Renderer::Set_Cull(Renderer::Cull::Clockwise, Renderer::StateWrite::Immediate);
 //		m_pDev->SetRenderState(D3DRS_ZBIAS,1);	///@todo: See if this helps or makes things worse.
 		//m_pDev->SetRenderState(D3DRS_FILLMODE,D3DFILL_WIREFRAME);
 
@@ -3536,14 +3536,14 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 		}
 
 		// change the stencil op to decrement
-		m_pDev->SetRenderState( D3DRS_STENCILPASS,  D3DSTENCILOP_DECRSAT);
+		Renderer::Set_Stencil_Pass(Renderer::StencilOp::DecrementSaturate, Renderer::StateWrite::Immediate);
 
 		//
 		// invert normals of shadow volumes so we can decrement in the
 		// stencil buffer and render
 		//
 
-		m_pDev->SetRenderState(D3DRS_CULLMODE,D3DCULL_CCW);
+		Renderer::Set_Cull(Renderer::Cull::CounterClockwise, Renderer::StateWrite::Immediate);
 
 		for (nextVb=TheW3DBufferManager->getNextVertexBuffer(nullptr,W3DBufferManager::VBM_FVF_XYZ);nextVb != nullptr; nextVb=TheW3DBufferManager->getNextVertexBuffer(nextVb,W3DBufferManager::VBM_FVF_XYZ))
 		{
@@ -3572,7 +3572,7 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 			nextVb->m_renderTaskList=nullptr;
 		}
 
-		m_pDev->SetRenderState(D3DRS_CULLMODE,D3DCULL_CW);
+		Renderer::Set_Cull(Renderer::Cull::Clockwise, Renderer::StateWrite::Immediate);
 //		m_pDev->SetRenderState(D3DRS_ZBIAS,0);	///@todo: See if this helps or makes things worse.
 		//m_pDev->SetRenderState(D3DRS_FILLMODE,D3DFILL_SOLID);
 
@@ -3589,7 +3589,7 @@ void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 			renderStencilShadows();
 
 		m_pDev->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
-		m_pDev->SetRenderState(D3DRS_ALPHABLENDENABLE , FALSE);
+		Renderer::Set_Blend_Enable(false, Renderer::StateWrite::Immediate);
 		m_pDev->SetRenderState(D3DRS_LIGHTING, FALSE);
 
 		DX8Wrapper::Invalidate_Cached_Render_States();
