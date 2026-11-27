@@ -761,6 +761,8 @@ private:
 
 	// Turrets -------------------------------------------------------------------------------------------------
 	TurretAI*					m_turretAI[MAX_TURRETS];		// ai for our turret (or null if no turret)
+	Int m_activeTurretCount;
+	UnsignedByte m_activeTurretIndices[MAX_TURRETS];
 	WhichTurretType		m_turretSyncFlag;						///< for private use by multiturreted units where the turrets must sync with each other
 
 	// AI -------------------------------------------------------------------------------------------

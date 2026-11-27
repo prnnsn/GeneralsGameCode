@@ -249,6 +249,7 @@ AIUpdateInterface::AIUpdateInterface( Thing *thing, const ModuleData* moduleData
 	m_curLocomotorSet = LOCOMOTORSET_INVALID;
 	m_locomotorGoalType = NONE;
 	m_locomotorGoalData.zero();
+	m_activeTurretCount = 0;
 	for (i = 0; i < MAX_TURRETS; i++)
 		m_turretAI[i] = nullptr;
 	m_turretSyncFlag = TURRET_INVALID;
@@ -290,6 +291,8 @@ AIUpdateInterface::AIUpdateInterface( Thing *thing, const ModuleData* moduleData
 		if (getAIUpdateModuleData()->m_turretData[i])
 		{
 			m_turretAI[i] = newInstance(TurretAI)(getObject(), getAIUpdateModuleData()->m_turretData[i], (WhichTurretType)i);
+			if (m_turretAI[i])
+				m_activeTurretIndices[m_activeTurretCount++] = static_cast<UnsignedByte>(i);
 		}
 	}
 
@@ -727,8 +730,9 @@ Bool AIUpdateInterface::isTurretInNaturalPosition(WhichTurretType tur) const
 //=============================================================================
 Bool AIUpdateInterface::isWeaponSlotOnTurretAndAimingAtTarget(WeaponSlotType wslot, const Object* victim) const
 {
-	for (int i = 0; i < MAX_TURRETS; i++)
+	for (Int active = 0; active < m_activeTurretCount; ++active)
 	{
+		const Int i = m_activeTurretIndices[active];
 		if (m_turretAI[i] && m_turretAI[i]->isWeaponSlotOnTurret(wslot))
 		{
 			return m_turretAI[i]->isTryingToAimAtTarget(victim);
@@ -762,18 +766,22 @@ Real AIUpdateInterface::getTurretTurnRate(WhichTurretType tur) const
 //=============================================================================
 WhichTurretType AIUpdateInterface::getWhichTurretForCurWeapon() const
 {
-	for (int i = 0; i < MAX_TURRETS; ++i)
+	for (Int active = 0; active < m_activeTurretCount; ++active)
+	{
+		const Int i = m_activeTurretIndices[active];
 		if (m_turretAI[i] && m_turretAI[i]->isOwnersCurWeaponOnTurret())
 			return (WhichTurretType)i;
 
+	}
 	return TURRET_INVALID;
 }
 
 //=============================================================================
 WhichTurretType AIUpdateInterface::getWhichTurretForWeaponSlot(WeaponSlotType wslot, Real* turretAngle, Real* turretPitch) const
 {
-	for (int i = 0; i < MAX_TURRETS; ++i)
+	for (Int active = 0; active < m_activeTurretCount; ++active)
 	{
+		const Int i = m_activeTurretIndices[active];
 		if (m_turretAI[i] && m_turretAI[i]->isWeaponSlotOnTurret(wslot))
 		{
 			if (turretAngle)
@@ -1091,8 +1099,9 @@ UpdateSleepTime AIUpdateInterface::update()
 			! obj->isDisabledByType( DISABLED_HACKED ) )
 	{
 		// If we are dead, don't let the turrets do anything anymore, or else they will keep attacking
-		for (int i = 0; i < MAX_TURRETS; ++i)
+		for (Int active = 0; active < m_activeTurretCount; ++active)
 		{
+			const Int i = m_activeTurretIndices[active];
 			if (m_turretAI[i])
 			{
 				UpdateSleepTime tmp = m_turretAI[i]->updateTurretAI();
