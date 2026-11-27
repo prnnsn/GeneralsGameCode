@@ -92,6 +92,11 @@ public:
     // Buffer allocation/binding and texture sampler policy remain separate.
     static void Set_Shader(const ShaderClass & shader);
     static void Set_Texture(unsigned stage, TextureBaseClass * texture);
+    // Set addressing and border colour for one sampler. Colour is packed ARGB.
+    enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
+    static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
+    static void Set_Texture_Address_V(unsigned stage, TextureAddress address);
+    static void Set_Texture_Border_Color(unsigned stage, unsigned argb);
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
     static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
