@@ -106,6 +106,8 @@ static GameWindow *		checkRetaliation		= nullptr;
 static NameKeyType		checkDoubleClickAttackMoveID	= NAMEKEY_INVALID;
 static GameWindow *		checkDoubleClickAttackMove		= nullptr;
 
+static GameWindow *checkShowCommandHotkeys = nullptr;
+
 static NameKeyType		sliderScrollSpeedID	= NAMEKEY_INVALID;
 static GameWindow *		sliderScrollSpeed		= nullptr;
 static GameWindow *sliderCameraZoomSpeed = nullptr;
@@ -293,6 +295,8 @@ static void setDefaults()
 	GadgetCheckBoxSetChecked(checkAlternateMouse, FALSE);
 	GadgetCheckBoxSetChecked(checkRetaliation, TRUE );
 	GadgetCheckBoxSetChecked( checkDoubleClickAttackMove, FALSE );
+	if( checkShowCommandHotkeys )
+		GadgetCheckBoxSetChecked( checkShowCommandHotkeys, GlobalData::DEFAULT_SHOW_COMMAND_HOTKEYS );
 
 	//-------------------------------------------------------------------------------------------------
 //	// scroll speed val
@@ -614,6 +618,12 @@ static void saveOptions()
 
 	TheWritableGlobalData->m_doubleClickAttackMove = GadgetCheckBoxIsChecked( checkDoubleClickAttackMove );
 	(*pref)["UseDoubleClickAttackMove"] = TheWritableGlobalData->m_doubleClickAttackMove ? "yes" : "no";
+
+	if( checkShowCommandHotkeys )
+	{
+		TheWritableGlobalData->m_showCommandHotkeys = GadgetCheckBoxIsChecked( checkShowCommandHotkeys );
+		pref->setBool( "ShowCommandHotkeys", TheGlobalData->m_showCommandHotkeys );
+	}
 
 	// TheSuperHackers @todo Add combo box ?
 	{
@@ -1407,6 +1417,10 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	GadgetCheckBoxSetChecked(checkAlternateMouse, TheGlobalData->m_useAlternateMouse);
 	GadgetCheckBoxSetChecked(checkRetaliation, TheGlobalData->m_clientRetaliationModeEnabled);
 	GadgetCheckBoxSetChecked( checkDoubleClickAttackMove, TheGlobalData->m_doubleClickAttackMove );
+
+	checkShowCommandHotkeys = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("OptionsMenu.wnd:CheckShowCommandHotkeys") );
+	if( checkShowCommandHotkeys )
+		GadgetCheckBoxSetChecked( checkShowCommandHotkeys, TheGlobalData->m_showCommandHotkeys );
 
 	// set scroll speed slider
 	// TheSuperHackers @tweak xezon 11/07/2025 No longer sets the slider position if the user setting
