@@ -103,6 +103,10 @@ public:
     static void Set_Texture_Border_Color(unsigned stage, unsigned argb);
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
+    // Scoped terrain bias uses legacy strength units, not a raw API constant.
+    // Only acquire when supported and no previous bias is active.
+    static bool Try_Begin_Terrain_Depth_Bias(unsigned strength);
+    static void End_Terrain_Depth_Bias();
     static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
                                unsigned short min_vertex_index, unsigned short vertex_count);
 
