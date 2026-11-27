@@ -189,6 +189,10 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	m_xferContainedByID(INVALID_ID),
 	m_containedByFrame(0),
 	m_behaviors(nullptr),
+	m_collisionBehaviorMask(0),
+	m_upgradeBehaviorMask(0),
+	m_specialPowerBehaviorMask(0),
+	m_behaviorIndexesReady(false),
 	m_body(nullptr),
 	m_contain(nullptr),
   m_stealth(nullptr),
@@ -488,6 +492,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 
 	//Modules have now been completely created!
 	m_modulesReady = true;
+	buildBehaviorIndexes();
 
 	TheRadar->addObject( this );
 
@@ -598,6 +603,7 @@ void Object::initObject()
 //-------------------------------------------------------------------------------------------------
 Object::~Object()
 {
+	m_behaviorIndexesReady = false;
 
 	// tell the AI the building is gone
 	/// @todo Generalize the notion of objects entering and leaving the world, so we don't have to special case this
@@ -2442,9 +2448,44 @@ void Object::checkDisabledStatus()
 }
 
 //-------------------------------------------------------------------------------------------------
+void Object::buildBehaviorIndexes()
+{
+	m_collisionBehaviorMask = m_upgradeBehaviorMask = m_specialPowerBehaviorMask = 0;
+	m_behaviorIndexesReady = false;
+	for (Int i = 0; m_behaviors[i]; ++i)
+	{
+		if (i >= 32)
+			return;
+		BehaviorModule* module = m_behaviors[i];
+		const UnsignedInt bit = 1u << i;
+		if (module->getCollide()) m_collisionBehaviorMask |= bit;
+		if (module->getUpgrade()) m_upgradeBehaviorMask |= bit;
+		if (module->getSpecialPower()) m_specialPowerBehaviorMask |= bit;
+	}
+	m_behaviorIndexesReady = true;
+}
+
+BehaviorModule** Object::nextIndexedBehavior(BehaviorModule** start, UnsignedInt mask) const
+{
+	if (!m_behaviorIndexesReady)
+		return start;
+	const Int index = static_cast<Int>(start - m_behaviors);
+	if (index >= 32)
+		return nullptr;
+	UnsignedInt remaining = mask >> index;
+	if (!remaining)
+		return nullptr;
+	while (!(remaining & 1u))
+	{
+		++start;
+		remaining >>= 1;
+	}
+	return start;
+}
+
 void Object::pauseAllSpecialPowers( const Bool disabling ) const
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -2478,7 +2519,7 @@ void Object::updateTriggerAreaFlags()
 //-------------------------------------------------------------------------------------------------
 void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal )
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_collisionBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_collisionBehaviorMask))
 	{
 		CollideModuleInterface* collide = (*m)->getCollide();
 		if (!collide)
@@ -2502,7 +2543,7 @@ void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal
 //-------------------------------------------------------------------------------------------------
 Bool Object::isSalvageCrate() const
 {
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_collisionBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_collisionBehaviorMask))
 	{
 		CollideModuleInterface* collide = (*m)->getCollide();
 		if( collide && collide->isSalvageCrateCollide() )
@@ -2535,7 +2576,7 @@ void Object::updateUpgradeModules()
 	// We need to add in all of the already owned upgrades to handle "AND" requiring upgrades.
 	// We combine all the masks in case someone has a Object AND Player combination
 
-	for (BehaviorModule** module = m_behaviors; *module; ++module)
+	for (BehaviorModule** module = nextIndexedBehavior(m_behaviors, m_upgradeBehaviorMask); module && *module; module = nextIndexedBehavior(module + 1, m_upgradeBehaviorMask))
 	{
 		UpgradeModuleInterface* upgrade = (*module)->getUpgrade();
 		if (!upgrade)
@@ -2558,7 +2599,7 @@ void Object::updateUpgradeModules()
 //-------------------------------------------------------------------------------------------------
 void Object::forceRefreshSubObjectUpgradeStatus()
 {
-	for (BehaviorModule** module = m_behaviors; *module; ++module)
+	for (BehaviorModule** module = nextIndexedBehavior(m_behaviors, m_upgradeBehaviorMask); module && *module; module = nextIndexedBehavior(module + 1, m_upgradeBehaviorMask))
 	{
 		UpgradeModuleInterface* upgrade = (*module)->getUpgrade();
 		if (!upgrade)
@@ -5503,7 +5544,7 @@ SpecialPowerModuleInterface *Object::getSpecialPowerModule( const SpecialPowerTe
 		return nullptr;
 
 	// search the modules for the one with the matching template
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -6066,7 +6107,7 @@ DockUpdateInterface *Object::getDockUpdateInterface()
 // ------------------------------------------------------------------------------------------------
 SpecialPowerModuleInterface* Object::findSpecialPowerModuleInterface( SpecialPowerType type ) const
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -6091,7 +6132,7 @@ SpecialPowerModuleInterface* Object::findSpecialPowerModuleInterface( SpecialPow
 // ------------------------------------------------------------------------------------------------
 SpecialPowerModuleInterface* Object::findAnyShortcutSpecialPowerModuleInterface() const
 {
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)

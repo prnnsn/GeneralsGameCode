@@ -749,6 +749,14 @@ private:
 
 	// modules
 	BehaviorModule**							m_behaviors;	// BehaviorModule, not BehaviorModuleInterface
+	// Derived, ordered indexes; fall back to original array during lifecycle
+	// transitions and for objects with more than 32 behavior modules.
+	UnsignedInt m_collisionBehaviorMask;
+	UnsignedInt m_upgradeBehaviorMask;
+	UnsignedInt m_specialPowerBehaviorMask;
+	Bool m_behaviorIndexesReady;
+	void buildBehaviorIndexes();
+	BehaviorModule** nextIndexedBehavior(BehaviorModule** start, UnsignedInt mask) const;
 
 	// cache these, for convenience
 	ContainModuleInterface*				m_contain;
