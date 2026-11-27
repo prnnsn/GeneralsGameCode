@@ -2576,7 +2576,7 @@ void Object::updateUpgradeModules()
 	// We need to add in all of the already owned upgrades to handle "AND" requiring upgrades.
 	// We combine all the masks in case someone has a Object AND Player combination
 
-	for (BehaviorModule** module = m_behaviors; *module; ++module)
+	for (BehaviorModule** module = nextIndexedBehavior(m_behaviors, m_upgradeBehaviorMask); module && *module; module = nextIndexedBehavior(module + 1, m_upgradeBehaviorMask))
 	{
 		UpgradeModuleInterface* upgrade = (*module)->getUpgrade();
 		if (!upgrade)
@@ -2599,7 +2599,7 @@ void Object::updateUpgradeModules()
 //-------------------------------------------------------------------------------------------------
 void Object::forceRefreshSubObjectUpgradeStatus()
 {
-	for (BehaviorModule** module = m_behaviors; *module; ++module)
+	for (BehaviorModule** module = nextIndexedBehavior(m_behaviors, m_upgradeBehaviorMask); module && *module; module = nextIndexedBehavior(module + 1, m_upgradeBehaviorMask))
 	{
 		UpgradeModuleInterface* upgrade = (*module)->getUpgrade();
 		if (!upgrade)
