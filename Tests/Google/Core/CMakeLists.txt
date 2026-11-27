@@ -15,6 +15,7 @@ set(COREI_GOOGLETEST_SRC
     Libraries/WWVegas/WW3D2/DX8VertexLayoutTest.cpp
     Libraries/WWVegas/WW3D2/RenderBufferTest.cpp
     Libraries/WWVegas/WW3D2/RenderTextureTest.cpp
+    Libraries/WWVegas/WW3D2/RenderTargetDescTest.cpp
     Libraries/WWVegas/WW3D2/RenderTextureSubresourcesTest.cpp
     Libraries/WWVegas/WW3D2/TextureAtlasTest.cpp
     Libraries/WWVegas/WW3D2/hlod_test.cpp
