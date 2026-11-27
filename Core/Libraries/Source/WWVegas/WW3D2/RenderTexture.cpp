@@ -156,4 +156,25 @@ bool TryClearRows(const MipLayout & layout, unsigned char * data,
         std::memset(data + row * row_pitch, 0, layout.row_bytes);
     return true;
 }
+
+bool TryFillPixelRect(const SurfaceWriteView & view, unsigned left, unsigned top,
+                      unsigned right, unsigned bottom, std::uint32_t value)
+{
+    if (!view.data || !view.pixel_bytes || view.pixel_bytes > sizeof(value) ||
+        left > right || top > bottom || right >= view.layout.width || bottom >= view.layout.height)
+        return false;
+
+    const std::uint64_t row_end = (std::uint64_t(right) + 1) * view.pixel_bytes;
+    if (row_end > view.layout.row_bytes || row_end > view.pitch ||
+        std::uint64_t(bottom) * view.pitch + row_end > view.byte_count)
+        return false;
+
+    for (unsigned y = top; y <= bottom; ++y)
+    {
+        auto * dest = view.data + y * view.pitch + left * view.pixel_bytes;
+        for (unsigned x = left; x <= right; ++x, dest += view.pixel_bytes)
+            std::memcpy(dest, &value, view.pixel_bytes);
+    }
+    return true;
+}
 }

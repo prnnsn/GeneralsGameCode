@@ -169,6 +169,39 @@ TEST(RenderTexture, StagedDdsValidatesAllMipsAndCopiesOnlyTheirBlockRows)
     EXPECT_EQ(expected_small, small_surface);
 }
 
+TEST(RenderTexture, FillPixelRectWritesInclusivePaddedRows)
+{
+    std::array<unsigned char, 14> bytes;
+    bytes.fill(0xcd);
+    const SurfaceWriteView view = {
+        bytes.data(), { 3, 2, 6, 2 }, 8, static_cast<std::uint32_t>(bytes.size()), 2, WW3D_FORMAT_A4R4G4B4
+    };
+    ASSERT_TRUE(TryFillPixelRect(view, 1, 0, 2, 1, 0x4321));
+    const std::array<unsigned char, 14> expected = {
+        0xcd, 0xcd, 0x21, 0x43, 0x21, 0x43, 0xcd, 0xcd,
+        0xcd, 0xcd, 0x21, 0x43, 0x21, 0x43
+    };
+    EXPECT_EQ(expected, bytes);
+}
+
+TEST(RenderTexture, FillPixelRectValidatesTheWholeRectangleBeforeWriting)
+{
+    std::array<unsigned char, 16> bytes;
+    bytes.fill(0xcd);
+    const auto original = bytes;
+    SurfaceWriteView view = {
+        bytes.data(), { 2, 2, 8, 2 }, 8, 15, 4, WW3D_FORMAT_A8R8G8B8
+    };
+    EXPECT_FALSE(TryFillPixelRect(view, 0, 0, 1, 1, 0xff000000));
+    view.byte_count = static_cast<std::uint32_t>(bytes.size());
+    EXPECT_FALSE(TryFillPixelRect(view, 0, 0, 2, 1, 0xff000000));
+    EXPECT_FALSE(TryFillPixelRect(view, 1, 0, 0, 1, 0xff000000));
+    EXPECT_EQ(original, bytes);
+    EXPECT_TRUE(TryFillPixelRect(view, 1, 1, 1, 1, 0xff000000));
+    EXPECT_EQ(0xff, bytes.back());
+    EXPECT_EQ(0xcd, bytes[11]);
+}
+
 TEST(RenderTexture, ClearRowsPreservesPaddingAndNeedsNoTrailingPadding)
 {
     MipLayout layout = {};

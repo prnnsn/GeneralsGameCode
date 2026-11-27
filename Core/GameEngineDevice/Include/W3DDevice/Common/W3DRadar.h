@@ -33,11 +33,10 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/Radar.h"
-#include "WW3D2/ww3dformat.h"
+#include "WW3D2/Renderer.h"
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class TextureClass;
-class SurfaceClass;
 class TerrainLogic;
 
 // PROTOTYPES /////////////////////////////////////////////////////////////////////////////////////
@@ -109,11 +108,8 @@ protected:
 	WW3DFormat m_shroudTextureFormat;							///< format to use for shroud texture
 	Image *m_shroudImage;													///< shroud image abstraction for drawing
 	TextureClass *m_shroudTexture;								///< shroud texture
-	SurfaceClass *m_shroudSurface;								///< surface to shroud texture
-	void *m_shroudSurfaceBits;										///< shroud surface bits
-	int m_shroudSurfacePitch;											///< shroud surface pitch
-	WW3DFormat m_shroudSurfaceFormat;							///< shroud surface format
-	UnsignedInt m_shroudSurfacePixelSize;					///< shroud surface pixel size
+	Renderer::TextureMipWrite m_shroudWrite;
+	bool m_updatingShroud = false;
 
 	Int m_textureWidth;														///< width for all radar textures
 	Int m_textureHeight;													///< height for all radar textures

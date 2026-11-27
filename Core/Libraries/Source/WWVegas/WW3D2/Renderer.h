@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "WW3D2/ww3dformat.h"
+#include "WW3D2/RenderTexture.h"
 
 // Forward declarations keep this header includable without pulling in the full
 // WW3D2 header graph. All W3D classes below are passed by pointer or reference.
@@ -132,6 +132,25 @@ public:
     // On failure the output arguments keep their previous values.
     static bool Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
                                             unsigned & width, unsigned & height, WW3DFormat & format);
+
+    // Owns a checked write mapping of a single uncompressed mip.
+    class TextureMipWrite
+    {
+    public:
+        TextureMipWrite() = default;
+        ~TextureMipWrite();
+
+        TextureMipWrite(const TextureMipWrite &) = delete;
+        TextureMipWrite & operator=(const TextureMipWrite &) = delete;
+
+        bool Try_Begin(const TextureClass & texture, unsigned mip = 0);
+        const RenderTextures::SurfaceWriteView & View() const { return view; }
+        bool Finish();
+
+    private:
+        void * native_surface = nullptr;
+        RenderTextures::SurfaceWriteView view;
+    };
 
     // Zero the active bytes of an uncompressed mip while preserving row padding.
     static bool Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip = 0);

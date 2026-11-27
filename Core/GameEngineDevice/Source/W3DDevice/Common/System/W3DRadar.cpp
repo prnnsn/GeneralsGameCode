@@ -162,6 +162,8 @@ void W3DRadar::deleteResources()
 	//
 	// delete shroud resources used
 	//
+	m_shroudWrite.Finish();
+	m_updatingShroud = false;
 	if( m_shroudTexture )
 		m_shroudTexture->Release_Ref();
 	m_shroudTexture = nullptr;
@@ -169,8 +171,6 @@ void W3DRadar::deleteResources()
 	deleteInstance(m_shroudImage);
 	m_shroudImage = nullptr;
 
-	DEBUG_ASSERTCRASH(m_shroudSurface == nullptr, ("W3DRadar::deleteResources: m_shroudSurface is expected null"));
-	DEBUG_ASSERTCRASH(m_shroudSurfaceBits == nullptr, ("W3DRadar::deleteResources: m_shroudSurfaceBits is expected null"));
 
 }
 
@@ -856,11 +856,6 @@ W3DRadar::W3DRadar()
 	m_shroudTextureFormat = WW3D_FORMAT_UNKNOWN;
 	m_shroudImage = nullptr;
 	m_shroudTexture = nullptr;
-	m_shroudSurface = nullptr;
-	m_shroudSurfaceBits = nullptr;
-	m_shroudSurfacePitch = 0;
-	m_shroudSurfaceFormat = WW3D_FORMAT_UNKNOWN;
-	m_shroudSurfacePixelSize = 0;
 
 	m_textureWidth = RADAR_CELL_WIDTH;
 	m_textureHeight = RADAR_CELL_HEIGHT;
@@ -1279,22 +1274,9 @@ void W3DRadar::clearShroud()
 		return;
 #endif
 
-	SurfaceClass *surface = m_shroudTexture->Get_Surface_Level();
-
-	// fill to clear, shroud will make black.  Don't want to make something black that logic can't clear
-
-	int pitch;
-	void *pBits = surface->Lock(&pitch);
-	const unsigned int bytesPerPixel = surface->Get_Bytes_Per_Pixel();
-	const Color color = GameMakeColor( 0, 0, 0, 0 );
-
-	for( Int y = 0; y < m_textureHeight; y++ )
-	{
-		surface->Draw_H_Line(y, 0, m_textureWidth-1, color, bytesPerPixel, pBits, pitch);
-	}
-
-	surface->Unlock();
-	REF_PTR_RELEASE(surface);
+	// Clear to transparent before the current shroud is drawn.
+	if (m_shroudTexture)
+		Renderer::Clear_Texture_2D_Mip(*m_shroudTexture);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1307,7 +1289,7 @@ void W3DRadar::setShroudLevel(Int shroudX, Int shroudY, CellShroudStatus setting
 #endif
 
 	W3DShroud* shroud = TheTerrainRenderObject ? TheTerrainRenderObject->getShroud() : nullptr;
-	if (!shroud)
+	if (!shroud || (m_updatingShroud && !m_shroudWrite.View().data))
 		return;
 
 	Int mapMinX = shroudX * shroud->getCellWidth();
@@ -1347,74 +1329,29 @@ void W3DRadar::setShroudLevel(Int shroudX, Int shroudY, CellShroudStatus setting
 	else
 		alpha = 0;
 
-	if (m_shroudSurface == nullptr)
-	{
-		// This is expensive.
-		SurfaceClass* surface = m_shroudTexture->Get_Surface_Level();
-		DEBUG_ASSERTCRASH( surface, ("W3DRadar: Can't get surface for Shroud texture") );
-		SurfaceClass::SurfaceDescription surfaceDesc;
-		surface->Get_Description(surfaceDesc);
-		int pitch;
-		void *pBits = surface->Lock(&pitch);
-		const unsigned int bytesPerPixel = Get_Bytes_Per_Pixel(surfaceDesc.Format);
-		const Color argbColor = GameMakeColor( 0, 0, 0, alpha );
-		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(surfaceDesc.Format, argbColor);
+	Renderer::TextureMipWrite singleWrite;
+	if (!m_updatingShroud && (!m_shroudTexture || !singleWrite.Try_Begin(*m_shroudTexture)))
+		return;
 
-		for( Int y = radarMinY; y <= radarMaxY; ++y )
-		{
-			for( Int x = radarMinX; x <= radarMaxX; ++x )
-			{
-				surface->Draw_Pixel( x, y, pixelColor, bytesPerPixel, pBits, pitch );
-			}
-		}
-
-		surface->Unlock();
-		REF_PTR_RELEASE(surface);
-	}
-	else
-	{
-		// This is cheap.
-		DEBUG_ASSERTCRASH(m_shroudSurfaceBits != nullptr, ("W3DRadar::setShroudLevel: m_shroudSurfaceBits is not expected null"));
-		DEBUG_ASSERTCRASH(m_shroudSurfaceFormat != WW3D_FORMAT_UNKNOWN, ("W3DRadar::setShroudLevel: m_shroudSurfaceFormat is not expected UNKNOWN"));
-		DEBUG_ASSERTCRASH(m_shroudSurfacePixelSize != 0, ("W3DRadar::setShroudLevel: m_shroudSurfacePixelSize is not expected 0"));
-		const Color argbColor = GameMakeColor( 0, 0, 0, alpha );
-		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(m_shroudSurfaceFormat, argbColor);
-
-		for( Int y = radarMinY; y <= radarMaxY; ++y )
-		{
-			for( Int x = radarMinX; x <= radarMaxX; ++x )
-			{
-				m_shroudSurface->Draw_Pixel( x, y, pixelColor, m_shroudSurfacePixelSize, m_shroudSurfaceBits, m_shroudSurfacePitch );
-			}
-		}
-	}
+	const auto &view = m_updatingShroud ? m_shroudWrite.View() : singleWrite.View();
+	const Color argbColor = GameMakeColor( 0, 0, 0, alpha );
+	const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(view.format, argbColor);
+	RenderTextures::TryFillPixelRect(view, radarMinX, radarMinY, radarMaxX, radarMaxY, pixelColor);
 }
 
 void W3DRadar::beginSetShroudLevel()
 {
-	DEBUG_ASSERTCRASH( m_shroudSurface == nullptr, ("W3DRadar::beginSetShroudLevel: m_shroudSurface is expected null") );
-	m_shroudSurface = m_shroudTexture->Get_Surface_Level();
-	DEBUG_ASSERTCRASH( m_shroudSurface != nullptr, ("W3DRadar::beginSetShroudLevel: Can't get surface for Shroud texture") );
-
-	SurfaceClass::SurfaceDescription surfaceDesc;
-	m_shroudSurface->Get_Description(surfaceDesc);
-	m_shroudSurfaceBits = m_shroudSurface->Lock(&m_shroudSurfacePitch);
-	m_shroudSurfaceFormat = surfaceDesc.Format;
-	m_shroudSurfacePixelSize = Get_Bytes_Per_Pixel(surfaceDesc.Format);
+	DEBUG_ASSERTCRASH(!m_updatingShroud, ("W3DRadar::beginSetShroudLevel: Batch already started"));
+	m_updatingShroud = true;
+	if (m_shroudTexture)
+		m_shroudWrite.Try_Begin(*m_shroudTexture);
 }
 
 void W3DRadar::endSetShroudLevel()
 {
-	DEBUG_ASSERTCRASH( m_shroudSurface != nullptr, ("W3DRadar::endSetShroudLevel: m_shroudSurface is not expected null") );
-	if (m_shroudSurfaceBits != nullptr)
-	{
-		m_shroudSurface->Unlock();
-		m_shroudSurfaceBits = nullptr;
-		m_shroudSurfacePitch = 0;
-		m_shroudSurfaceFormat = WW3D_FORMAT_UNKNOWN;
-		m_shroudSurfacePixelSize = 0;
-	}
-	REF_PTR_RELEASE(m_shroudSurface);
+	DEBUG_ASSERTCRASH(m_updatingShroud, ("W3DRadar::endSetShroudLevel: No batch started"));
+	m_shroudWrite.Finish();
+	m_updatingShroud = false;
 }
 
 //-------------------------------------------------------------------------------------------------
