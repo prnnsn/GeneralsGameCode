@@ -218,7 +218,7 @@ public:
 	}
 
 	//-------------------------------------------------------------------------------------------------
-	const MATCHABLE* findBestInfo(const std::vector<MATCHABLE>& v, const BITSET& bits) const
+	const MATCHABLE* findBestInfo(const std::vector<MATCHABLE>& v, const BITSET& bits, Bool* cacheHit = nullptr) const
 	{
 		typename MatchMap::const_iterator it = m_bestMatches.find(bits);
 
@@ -227,6 +227,8 @@ public:
 		{
 			first = (*it).second;
 		}
+		if (cacheHit)
+			*cacheHit = first != nullptr;
 		if (first != nullptr) {
 			return first;
 		}

@@ -41,6 +41,7 @@
 #include "Common/GameState.h"
 #include "Common/GlobalData.h"
 #include "Common/PerfTimer.h"
+#include "Lib/Profile.h"
 #include "Common/RandomValue.h"
 #include "Common/ThingTemplate.h"
 #include "Common/GameLOD.h"
@@ -1698,8 +1699,18 @@ void W3DModelDrawModuleData::parseConditionState(INI* ini, void *instance, void 
 //-------------------------------------------------------------------------------------------------
 const ModelConditionInfo* W3DModelDrawModuleData::findBestInfo(const ModelConditionFlags& c) const
 {
+	PROFILER_SECTION_NAME("ModelCondition lookup");
 	ModelConditionFlags bits = c;
 	bits.clear(m_ignoreConditionStates);
+#if defined(RTS_PROFILE_TRACY)
+	if (PROFILER_IS_CONNECTED)
+	{
+		Bool hit = false;
+		const ModelConditionInfo* info = m_conditionStateMap.findBestInfo(m_conditionStates, bits, &hit);
+		PROFILER_PLOT("ModelCondition cache hit (0/1)", hit ? 1.0 : 0.0);
+		return info;
+	}
+#endif
 	return m_conditionStateMap.findBestInfo(m_conditionStates, bits);
 }
 
@@ -2891,6 +2902,7 @@ static Bool turretNamesDiffer(const ModelConditionInfo* a, const ModelConditionI
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 {
+	PROFILER_SECTION_NAME("ModelCondition set model state");
 	DEBUG_ASSERTCRASH(newState, ("invalid state in W3DModelDraw::setModelState"));
 
 #ifdef DEBUG_OBJECT_ID_EXISTS
@@ -3165,6 +3177,7 @@ void W3DModelDraw::setModelState(const ModelConditionInfo* newState)
 //-------------------------------------------------------------------------------------------------
 void W3DModelDraw::replaceModelConditionState(const ModelConditionFlags& c)
 {
+	PROFILER_SECTION_NAME("ModelCondition replace state");
 	m_hideHeadlights = c.test(MODELCONDITION_NIGHT) ? false : true;
 
 	const ModelConditionInfo* info = findBestInfo(c);
