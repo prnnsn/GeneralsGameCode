@@ -44,7 +44,7 @@ Do not treat the first three draft PRs as a finished abstraction. Their shared R
 
 | ID | Scope and acceptance | C/R |
 | --- | --- | --- |
-| 13b.1 | Inventory resource ownership, refcounts, formats, usage flags, pools, lock/unlock, reset and all native-handle escape paths; design neutral resource descriptors and lifetime contract | 3/2 |
+| 13b.1 | Inventory resource ownership, refcounts, formats, usage flags, pools, lock/unlock, reset and native-handle escape paths; design neutral resource descriptors and lifetime contract. First-pass audit in [draft #86](https://github.com/prnnsn/GeneralsGameCode/pull/86); complete exhaustive inventory before implementation. | 3/2 |
 | 13b.2 | Vertex/index resource creation and update API; DX8 reference adapter; retain CPU sorting pages and 16-bit indexing | 4/3 |
 | 13b.3 | Texture/surface creation, mip levels, upload, DDS formats and readback; retain legacy fallback behavior | 4/3 |
 | 13b.4 | Render targets, depth/stencil, viewport, copies, screenshots and device-reset/resource recreation | 4/4 |
