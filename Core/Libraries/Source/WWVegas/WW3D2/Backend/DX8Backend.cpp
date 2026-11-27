@@ -22,12 +22,14 @@
 
 #include "WW3D2/Renderer.h"
 
+#include <climits>
 #include <memory>
 
 #include "WW3D2/Backend/DX8ManagedBufferWrite.h"
 #include "WW3D2/Backend/DX8StreamingBufferWrite.h"
 #include "WW3D2/Backend/DX8TextureMipWrite.h"
 #include "WW3D2/Backend/DX8VertexLayout.h"
+#include "WW3D2/RenderTexture.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
 #include "WW3D2/surfaceclass.h"
@@ -241,25 +243,37 @@ bool Renderer::Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned cha
     return DX8TextureMipWrite::Unlock(*native, data, pitch, mip_count);
 }
 
-SurfaceClass * Renderer::Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip)
+namespace
+{
+struct DX8SurfaceRelease
+{
+    void operator()(IDirect3DSurface8 * surface) const { surface->Release(); }
+};
+using DX8SurfaceRef = std::unique_ptr<IDirect3DSurface8, DX8SurfaceRelease>;
+
+DX8SurfaceRef Acquire_Native_Mip_Surface(const TextureClass & texture, unsigned mip)
 {
     auto * native = texture.Peek_D3D_Texture();
     if (!native)
-        return nullptr;
+        return {};
 
     IDirect3DSurface8 * surface = nullptr;
     const HRESULT result = native->GetSurfaceLevel(mip, &surface);
     if (FAILED(result) || !surface)
     {
         Non_Fatal_Log_DX8_ErrorCode(FAILED(result) ? result : E_FAIL, __FILE__, __LINE__);
-        return nullptr;
+        return {};
     }
 
-    // SurfaceClass retains its own reference. Balance the query reference
-    // even if allocation or construction of the wrapper throws.
-    const auto release = [](IDirect3DSurface8 * acquired) { acquired->Release(); };
-    const std::unique_ptr<IDirect3DSurface8, decltype(release)> query_ref(surface, release);
-    return new SurfaceClass(query_ref.get());
+    return DX8SurfaceRef(surface);
+}
+}
+
+SurfaceClass * Renderer::Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip)
+{
+    const auto surface = Acquire_Native_Mip_Surface(texture, mip);
+    // The wrapper retains a separate reference before the query reference is released.
+    return surface ? new SurfaceClass(surface.get()) : nullptr;
 }
 
 bool Renderer::Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
@@ -280,6 +294,48 @@ bool Renderer::Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigne
     width = desc.Width;
     height = desc.Height;
     format = D3DFormat_To_WW3DFormat(desc.Format);
+    return true;
+}
+
+bool Renderer::Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip)
+{
+    const auto surface = Acquire_Native_Mip_Surface(texture, mip);
+    if (!surface)
+        return false;
+
+    D3DSURFACE_DESC desc = {};
+    const HRESULT describe = surface->GetDesc(&desc);
+    if (FAILED(describe))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(describe, __FILE__, __LINE__);
+        return false;
+    }
+
+    const auto format = D3DFormat_To_WW3DFormat(desc.Format);
+    RenderTextures::FormatLayout storage;
+    RenderTextures::MipLayout layout;
+    if (!RenderTextures::TryFormatLayout(format, storage) ||
+        storage.block_width != 1 || storage.block_height != 1 ||
+        !RenderTextures::TryMipLayout({ desc.Width, desc.Height, 1, format }, 0, layout))
+        return false;
+
+    D3DLOCKED_RECT rect = {};
+    const HRESULT lock = surface->LockRect(&rect, nullptr, 0);
+    if (FAILED(lock))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(lock, __FILE__, __LINE__);
+        return false;
+    }
+
+    const bool cleared = rect.Pitch > 0 &&
+        RenderTextures::TryClearRows(layout, static_cast<unsigned char *>(rect.pBits),
+                                     static_cast<unsigned>(rect.Pitch), INT_MAX);
+    const HRESULT unlock = surface->UnlockRect();
+    if (!cleared || FAILED(unlock))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(FAILED(unlock) ? unlock : E_FAIL, __FILE__, __LINE__);
+        return false;
+    }
     return true;
 }
 

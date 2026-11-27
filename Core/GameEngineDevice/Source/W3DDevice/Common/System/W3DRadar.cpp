@@ -53,6 +53,7 @@
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "W3DDevice/GameClient/W3DShroud.h"
 #include "WW3D2/texture.h"
+#include "WW3D2/Renderer.h"
 #include "WW3D2/dx8caps.h"
 #include "WWMath/vector2i.h"
 
@@ -619,10 +620,9 @@ void W3DRadar::drawIcons( Int pixelX, Int pixelY, Int width, Int height )
 //-------------------------------------------------------------------------------------------------
 void W3DRadar::updateObjectTexture(TextureClass *texture)
 {
-	// reset the overlay texture
-	SurfaceClass *surface = texture->Get_Surface_Level();
-	surface->Clear();
-	REF_PTR_RELEASE(surface);
+	// Reset the overlay texture before adding any markers.
+	if (!texture || !Renderer::Clear_Texture_2D_Mip(*texture))
+		return;
 
 	// rebuild the object overlay
 	renderObjectList( m_objectList, texture );
@@ -991,22 +991,11 @@ void W3DRadar::reset()
 	// extending functionality, call base class
 	Radar::reset();
 
-	// clear our texture data, but do not delete the resources
-	SurfaceClass *surface;
-
-	surface = m_terrainTexture->Get_Surface_Level();
-	if( surface )
-	{
-		surface->Clear();
-		REF_PTR_RELEASE(surface);
-	}
-
-	surface = m_overlayTexture->Get_Surface_Level();
-	if( surface )
-	{
-		surface->Clear();
-		REF_PTR_RELEASE(surface);
-	}
+	// Clear the radar layers without discarding their textures.
+	if (m_terrainTexture)
+		Renderer::Clear_Texture_2D_Mip(*m_terrainTexture);
+	if (m_overlayTexture)
+		Renderer::Clear_Texture_2D_Mip(*m_overlayTexture);
 
 	// don't call Clear(); that wips to transparent. do this instead.
 	//gs Dude, it's called CLEARshroud.  It needs to clear the shroud.

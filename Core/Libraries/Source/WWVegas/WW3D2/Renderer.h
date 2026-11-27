@@ -133,6 +133,9 @@ public:
     static bool Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
                                             unsigned & width, unsigned & height, WW3DFormat & format);
 
+    // Zero the active bytes of an uncompressed mip while preserving row padding.
+    static bool Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip = 0);
+
     // Set addressing and border colour for one sampler. Colour is packed ARGB.
     enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
     static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
