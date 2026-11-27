@@ -202,7 +202,7 @@ void Line3DClass::Render(RenderInfoClass & rinfo)
 
 	DX8Wrapper::Set_Vertex_Buffer(vb);
 	DX8Wrapper::Set_Index_Buffer(ib,0);
-	DX8Wrapper::Draw_Triangles(0,36/3,0,8);
+	Renderer::Draw_Triangles(0,36/3,0,8);
 }
 
 void Line3DClass::Scale(float scale)

@@ -219,6 +219,13 @@ public:
     static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
                                unsigned short min_vertex_index, unsigned short vertex_count);
 
+    // Route preserves the legacy deferred CPU sorting vs immediate draw choice.
+    enum class DrawRoute { Gpu, CpuSorting, DynamicGpu, DynamicCpuSorting };
+    static void Draw_Triangles(DrawRoute route, unsigned short start_index, unsigned short polygon_count,
+                               unsigned short min_vertex_index, unsigned short vertex_count);
+    static void Draw_Strip(unsigned short start_index, unsigned short polygon_count,
+                           unsigned short min_vertex_index, unsigned short vertex_count);
+
     // Bind existing W3D buffer resources/access ranges; allocation and locking
     // remain in the resource layer. Preserve DX8 index offsets and stream defaults.
     static void Set_Vertex_Buffer(const VertexBufferClass * vb, unsigned stream = 0);

@@ -1,0 +1,3 @@
+# GFX 13a.9 — indexed draw submission
+
+Moves existing four-argument DX8 draws in verified mesh, sorting, line/particle, 2D and water consumers to the existing Renderer overload. Adds typed route overload and strip forwarding; box uses its already fixed dynamic GPU route. CPU sorting insertion calls, raw-device draw calls, buffer ownership and submission order are unchanged. The strip overload is an interface only; migrate its actual consumers after separate source verification. Compare original draw args/call order, sorting-enabled/disabled, both game/editor builds and visual checks; no engine build/runtime test performed.

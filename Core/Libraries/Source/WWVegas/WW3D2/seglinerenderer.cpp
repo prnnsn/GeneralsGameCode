@@ -1174,7 +1174,7 @@ void SegLineRendererClass::Render
 		if (sorting) {
 			SortingRendererClass::Insert_Triangles(obj_sphere,0,tidx,0,vnum);
 		} else {
-			DX8Wrapper::Draw_Triangles(0,tidx,0,vnum);
+			Renderer::Draw_Triangles(0,tidx,0,vnum);
 		}
 
 		REF_PTR_RELEASE(mat);
