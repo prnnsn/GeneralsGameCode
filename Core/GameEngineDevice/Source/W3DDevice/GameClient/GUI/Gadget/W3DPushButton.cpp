@@ -48,6 +48,7 @@
 #include <stdlib.h>
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
+#include "Common/GlobalData.h"
 #include "GameClient/Gadget.h"
 #include "GameClient/GameWindowGlobal.h"
 #include "GameClient/GameWindowManager.h"
@@ -78,8 +79,16 @@ void W3DGadgetPushButtonImageDrawOne(GameWindow *window, WinInstanceData *instDa
 // drawButtonText =============================================================
 /** Draw button text to the screen */
 //=============================================================================
-static void drawButtonText( GameWindow *window, WinInstanceData *instData )
+static void drawButtonText( GameWindow *window, WinInstanceData *instData, Bool drawCommandHotKey = FALSE )
 {
+	if( drawCommandHotKey != BitIsSet( window->winGetStatus(), WIN_STATUS_COMMAND_HOTKEY ) )
+		return;
+
+#if defined(RTS_ZEROHOUR)
+	if( drawCommandHotKey && TheGlobalData && !TheGlobalData->m_showCommandHotkeys )
+		return;
+#endif
+
 	ICoord2D origin, size, textPos;
 	Int width, height;
 	Color textColor, dropColor;
@@ -96,6 +105,28 @@ static void drawButtonText( GameWindow *window, WinInstanceData *instData )
 	// set whether or not we center the wrapped text
 	text->setWordWrapCentered( BitIsSet( instData->getStatus(), WIN_STATUS_WRAP_CENTERED ));
 	text->setWordWrap(size.x);
+	// set our font to that of our parent if not the same
+	if( text->getFont() != window->winGetFont() )
+		text->setFont( window->winGetFont() );
+
+	text->getSize( &width, &height );
+
+	if( drawCommandHotKey )
+	{
+		const Int margin = 2;
+		const Int badgeWidth = width + 2 * margin;
+		const Int badgeHeight = height + 1;
+		if( badgeWidth + 2 * margin > size.x || badgeHeight + 2 * margin > size.y )
+			return;
+
+		const Int x = origin.x + size.x - margin - badgeWidth;
+		const Int y = origin.y + margin;
+		const Int brightness = BitIsSet( window->winGetStatus(), WIN_STATUS_ENABLED ) ? 255 : 192;
+		TheDisplay->drawFillRect( x, y, badgeWidth, badgeHeight, GameMakeColor( 0, 0, 0, 192 ) );
+		text->draw( x + margin, y, GameMakeColor( brightness, brightness, brightness, 255 ), GameMakeColor( 0, 0, 0, 255 ) );
+		return;
+	}
+
 	// get the right text color
 	if( BitIsSet( window->winGetStatus(), WIN_STATUS_ENABLED ) == FALSE )
 	{
@@ -112,13 +143,6 @@ static void drawButtonText( GameWindow *window, WinInstanceData *instData )
 		textColor = window->winGetEnabledTextColor();
 		dropColor = window->winGetEnabledTextBorderColor();
 	}
-
-	// set our font to that of our parent if not the same
-	if( text->getFont() != window->winGetFont() )
-		text->setFont( window->winGetFont() );
-
-	// get text size
-	text->getSize( &width, &height );
 
 	// where to draw
 	if( BitIsSet( window->winGetStatus(), WIN_STATUS_SHORTCUT_BUTTON ) )
@@ -271,6 +295,7 @@ void W3DGadgetPushButtonDraw( GameWindow *window, WinInstanceData *instData )
 		}
 	}
 
+	drawButtonText( window, instData, TRUE );
 }
 
 
@@ -308,6 +333,8 @@ void W3DGadgetPushButtonImageDraw( GameWindow *window,
 	{
 		W3DGadgetPushButtonImageDrawOne( window, instData );
 	}
+
+	drawButtonText( window, instData, TRUE );
 }
 
 void W3DGadgetPushButtonImageDrawOne( GameWindow *window,

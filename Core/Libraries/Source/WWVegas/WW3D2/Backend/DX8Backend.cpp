@@ -189,6 +189,35 @@ void Renderer::Set_Texture(unsigned stage, TextureBaseClass * texture)
     DX8Wrapper::Set_Texture(stage, texture);
 }
 
+static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)
+{
+    switch (address)
+    {
+    case Renderer::TextureAddress::Wrap: return D3DTADDRESS_WRAP;
+    case Renderer::TextureAddress::Mirror: return D3DTADDRESS_MIRROR;
+    case Renderer::TextureAddress::Clamp: return D3DTADDRESS_CLAMP;
+    case Renderer::TextureAddress::Border: return D3DTADDRESS_BORDER;
+    case Renderer::TextureAddress::MirrorOnce: return D3DTADDRESS_MIRRORONCE;
+    }
+    WWASSERT(0);
+    return D3DTADDRESS_WRAP;
+}
+
+void Renderer::Set_Texture_Address_U(unsigned stage, TextureAddress address)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_ADDRESSU, To_D3D_Texture_Address(address));
+}
+
+void Renderer::Set_Texture_Address_V(unsigned stage, TextureAddress address)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_ADDRESSV, To_D3D_Texture_Address(address));
+}
+
+void Renderer::Set_Texture_Border_Color(unsigned stage, unsigned argb)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_BORDERCOLOR, argb);
+}
+
 void Renderer::Set_Material(const VertexMaterialClass * material)
 {
     DX8Wrapper::Set_Material(material);
