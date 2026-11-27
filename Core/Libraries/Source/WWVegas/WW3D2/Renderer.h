@@ -170,6 +170,32 @@ public:
     static void Set_Texture_Mag_Filter(unsigned stage, TextureFilter filter);
     static void Set_Texture_Mip_Filter(unsigned stage, TextureFilter filter);
     static void Set_Texture_Max_Anisotropy(unsigned stage, unsigned level);
+    // Cached requests preserve the wrapper cache. Immediate requests preserve
+    // legacy raw-device calls (caller is responsible for cache invalidation).
+    enum class StateWrite { Cached, Immediate };
+    enum class Compare { Never, Less, Equal, LessEqual, Greater, NotEqual, GreaterEqual, Always };
+    enum class BlendFactor { Zero, One, SrcColor, InvSrcColor, SrcAlpha, InvSrcAlpha, DestAlpha, InvDestAlpha, DestColor, InvDestColor, SrcAlphaSat };
+    enum class Cull { None, Clockwise, CounterClockwise };
+    enum class StencilOp { Keep, Zero, Replace, IncrementSaturate, DecrementSaturate, Invert, IncrementWrap, DecrementWrap };
+    static void Set_Depth_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Depth_Write(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Depth_Test(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Source_Blend(BlendFactor value, StateWrite mode = StateWrite::Cached);
+    static void Set_Destination_Blend(BlendFactor value, StateWrite mode = StateWrite::Cached);
+    static void Set_Blend_Enable(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Test(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Reference(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Alpha_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Cull(Cull value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Enable(bool value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Compare(Compare value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Reference(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Read_Mask(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Write_Mask(unsigned value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Fail(StencilOp value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Depth_Fail(StencilOp value, StateWrite mode = StateWrite::Cached);
+    static void Set_Stencil_Pass(StencilOp value, StateWrite mode = StateWrite::Cached);
+
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
     // Scoped terrain bias uses legacy strength units, not a raw API constant.

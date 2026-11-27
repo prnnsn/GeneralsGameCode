@@ -718,3 +718,149 @@ void Renderer::Set_Fog(bool enable, const Vector3 & color, float start, float en
 {
     DX8Wrapper::Set_Fog(enable, color, start, end);
 }
+
+
+namespace
+{
+void Write_Render_State(D3DRENDERSTATETYPE state, DWORD value, Renderer::StateWrite mode)
+{
+    if (mode == Renderer::StateWrite::Cached)
+        DX8Wrapper::Set_DX8_Render_State(state,value);
+    else
+        DX8Wrapper::_Get_D3D_Device8()->SetRenderState(state,value);
+}
+DWORD To_D3D_Compare(Renderer::Compare value)
+{
+    switch (value)
+    {
+    case Renderer::Compare::Never: return D3DCMP_NEVER;
+    case Renderer::Compare::Less: return D3DCMP_LESS;
+    case Renderer::Compare::Equal: return D3DCMP_EQUAL;
+    case Renderer::Compare::LessEqual: return D3DCMP_LESSEQUAL;
+    case Renderer::Compare::Greater: return D3DCMP_GREATER;
+    case Renderer::Compare::NotEqual: return D3DCMP_NOTEQUAL;
+    case Renderer::Compare::GreaterEqual: return D3DCMP_GREATEREQUAL;
+    case Renderer::Compare::Always: return D3DCMP_ALWAYS;
+    }
+    WWASSERT(0);
+    return D3DCMP_NEVER;
+}
+DWORD To_D3D_BlendFactor(Renderer::BlendFactor value)
+{
+    switch (value)
+    {
+    case Renderer::BlendFactor::Zero: return D3DBLEND_ZERO;
+    case Renderer::BlendFactor::One: return D3DBLEND_ONE;
+    case Renderer::BlendFactor::SrcColor: return D3DBLEND_SRCCOLOR;
+    case Renderer::BlendFactor::InvSrcColor: return D3DBLEND_INVSRCCOLOR;
+    case Renderer::BlendFactor::SrcAlpha: return D3DBLEND_SRCALPHA;
+    case Renderer::BlendFactor::InvSrcAlpha: return D3DBLEND_INVSRCALPHA;
+    case Renderer::BlendFactor::DestAlpha: return D3DBLEND_DESTALPHA;
+    case Renderer::BlendFactor::InvDestAlpha: return D3DBLEND_INVDESTALPHA;
+    case Renderer::BlendFactor::DestColor: return D3DBLEND_DESTCOLOR;
+    case Renderer::BlendFactor::InvDestColor: return D3DBLEND_INVDESTCOLOR;
+    case Renderer::BlendFactor::SrcAlphaSat: return D3DBLEND_SRCALPHASAT;
+    }
+    WWASSERT(0);
+    return D3DBLEND_ZERO;
+}
+DWORD To_D3D_Cull(Renderer::Cull value)
+{
+    switch (value)
+    {
+    case Renderer::Cull::None: return D3DCULL_NONE;
+    case Renderer::Cull::Clockwise: return D3DCULL_CW;
+    case Renderer::Cull::CounterClockwise: return D3DCULL_CCW;
+    }
+    WWASSERT(0);
+    return D3DCULL_NONE;
+}
+DWORD To_D3D_StencilOp(Renderer::StencilOp value)
+{
+    switch (value)
+    {
+    case Renderer::StencilOp::Keep: return D3DSTENCILOP_KEEP;
+    case Renderer::StencilOp::Zero: return D3DSTENCILOP_ZERO;
+    case Renderer::StencilOp::Replace: return D3DSTENCILOP_REPLACE;
+    case Renderer::StencilOp::IncrementSaturate: return D3DSTENCILOP_INCRSAT;
+    case Renderer::StencilOp::DecrementSaturate: return D3DSTENCILOP_DECRSAT;
+    case Renderer::StencilOp::Invert: return D3DSTENCILOP_INVERT;
+    case Renderer::StencilOp::IncrementWrap: return D3DSTENCILOP_INCR;
+    case Renderer::StencilOp::DecrementWrap: return D3DSTENCILOP_DECR;
+    }
+    WWASSERT(0);
+    return D3DSTENCILOP_KEEP;
+}
+}
+void Renderer::Set_Depth_Compare(Compare value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ZFUNC,To_D3D_Compare(value),mode);
+}
+void Renderer::Set_Depth_Write(bool value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ZWRITEENABLE,value ? TRUE : FALSE,mode);
+}
+void Renderer::Set_Depth_Test(bool value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ZENABLE,value ? D3DZB_TRUE : D3DZB_FALSE,mode);
+}
+void Renderer::Set_Source_Blend(BlendFactor value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_SRCBLEND,To_D3D_BlendFactor(value),mode);
+}
+void Renderer::Set_Destination_Blend(BlendFactor value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_DESTBLEND,To_D3D_BlendFactor(value),mode);
+}
+void Renderer::Set_Blend_Enable(bool value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ALPHABLENDENABLE,value ? TRUE : FALSE,mode);
+}
+void Renderer::Set_Alpha_Test(bool value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ALPHATESTENABLE,value ? TRUE : FALSE,mode);
+}
+void Renderer::Set_Alpha_Reference(unsigned value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ALPHAREF,value,mode);
+}
+void Renderer::Set_Alpha_Compare(Compare value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_ALPHAFUNC,To_D3D_Compare(value),mode);
+}
+void Renderer::Set_Cull(Cull value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_CULLMODE,To_D3D_Cull(value),mode);
+}
+void Renderer::Set_Stencil_Enable(bool value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILENABLE,value ? TRUE : FALSE,mode);
+}
+void Renderer::Set_Stencil_Compare(Compare value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILFUNC,To_D3D_Compare(value),mode);
+}
+void Renderer::Set_Stencil_Reference(unsigned value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILREF,value,mode);
+}
+void Renderer::Set_Stencil_Read_Mask(unsigned value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILMASK,value,mode);
+}
+void Renderer::Set_Stencil_Write_Mask(unsigned value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILWRITEMASK,value,mode);
+}
+void Renderer::Set_Stencil_Fail(StencilOp value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILFAIL,To_D3D_StencilOp(value),mode);
+}
+void Renderer::Set_Stencil_Depth_Fail(StencilOp value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILZFAIL,To_D3D_StencilOp(value),mode);
+}
+void Renderer::Set_Stencil_Pass(StencilOp value, StateWrite mode)
+{
+    Write_Render_State(D3DRS_STENCILPASS,To_D3D_StencilOp(value),mode);
+}
