@@ -286,9 +286,15 @@ IndexBufferClass::AppendLockClass::~AppendLockClass()
 //
 // ----------------------------------------------------------------------------
 
-DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_,UsageType usage)
+DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_, UsageType usage)
+	: DX8IndexBufferClass(index_count_, usage, true)
+{
+}
+
+DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_, UsageType usage, bool assert_on_failure)
 	:
-	IndexBufferClass(BUFFER_TYPE_DX8,index_count_)
+	IndexBufferClass(BUFFER_TYPE_DX8,index_count_),
+	index_buffer(nullptr)
 {
 	DX8_THREAD_ASSERT();
 	WWASSERT(index_count);
@@ -334,15 +340,21 @@ DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count_,UsageType u
 		WWDEBUG_SAY(("...Index buffer creation successful"));
 	}
 
-	// If it still fails it is fatal
-	DX8_ErrorCode(ret);
+	if (FAILED(ret))
+	{
+		if (assert_on_failure)
+			DX8_ErrorCode(ret);
+		else
+			Non_Fatal_Log_DX8_ErrorCode(ret, __FILE__, __LINE__);
+	}
 }
 
 // ----------------------------------------------------------------------------
 
 DX8IndexBufferClass::~DX8IndexBufferClass()
 {
-	index_buffer->Release();
+	if (index_buffer)
+		index_buffer->Release();
 }
 
 // ----------------------------------------------------------------------------

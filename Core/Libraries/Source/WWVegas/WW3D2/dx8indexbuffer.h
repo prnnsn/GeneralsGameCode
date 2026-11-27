@@ -165,7 +165,8 @@ public:
 		USAGE_NPATCHES=4
 	};
 
-	DX8IndexBufferClass(unsigned short index_count,UsageType usage=USAGE_DEFAULT);
+	DX8IndexBufferClass(unsigned short index_count, UsageType usage=USAGE_DEFAULT);
+	DX8IndexBufferClass(unsigned short index_count, UsageType usage, bool assert_on_failure);
 	virtual ~DX8IndexBufferClass() override;
 
 	void Copy(unsigned int* indices,unsigned start_index,unsigned index_count);

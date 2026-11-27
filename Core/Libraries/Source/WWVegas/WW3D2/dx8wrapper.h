@@ -136,6 +136,7 @@ extern bool _DX8SingleThreaded;
 
 void DX8_Assert();
 void Log_DX8_ErrorCode(unsigned res);
+void Non_Fatal_Log_DX8_ErrorCode(unsigned res, const char * file, int line);
 
 WWINLINE void DX8_ErrorCode(unsigned res)
 {

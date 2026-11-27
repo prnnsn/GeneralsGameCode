@@ -312,11 +312,16 @@ SortingVertexBufferClass::~SortingVertexBufferClass()
 //	bool dynamic=false,bool softwarevp=false);
 
 DX8VertexBufferClass::DX8VertexBufferClass(unsigned FVF, unsigned short vertex_count_, UsageType usage)
+	: DX8VertexBufferClass(FVF, vertex_count_, usage, true)
+{
+}
+
+DX8VertexBufferClass::DX8VertexBufferClass(unsigned FVF, unsigned short vertex_count_, UsageType usage, bool assert_on_failure)
 	:
 	VertexBufferClass(BUFFER_TYPE_DX8, FVF, vertex_count_),
 	VertexBuffer(nullptr)
 {
-	Create_Vertex_Buffer(usage);
+	Create_Vertex_Buffer(usage, assert_on_failure);
 }
 
 // ----------------------------------------------------------------------------
@@ -408,7 +413,8 @@ DX8VertexBufferClass::~DX8VertexBufferClass()
 	_DX8VertexBufferCount--;
 	WWDEBUG_SAY(("Current vertex buffer count: %d",_DX8VertexBufferCount));
 #endif
-	VertexBuffer->Release();
+	if (VertexBuffer)
+		VertexBuffer->Release();
 }
 
 // ----------------------------------------------------------------------------
@@ -417,7 +423,7 @@ DX8VertexBufferClass::~DX8VertexBufferClass()
 //
 // ----------------------------------------------------------------------------
 
-void DX8VertexBufferClass::Create_Vertex_Buffer(UsageType usage)
+void DX8VertexBufferClass::Create_Vertex_Buffer(UsageType usage, bool assert_on_failure)
 {
 	DX8_THREAD_ASSERT();
 	WWASSERT(!VertexBuffer);
@@ -481,8 +487,13 @@ void DX8VertexBufferClass::Create_Vertex_Buffer(UsageType usage)
 		WWDEBUG_SAY(("...Vertex buffer creation successful"));
 	}
 
-	// If it still fails it is fatal
-	DX8_ErrorCode(ret);
+	if (FAILED(ret))
+	{
+		if (assert_on_failure)
+			DX8_ErrorCode(ret);
+		else
+			Non_Fatal_Log_DX8_ErrorCode(ret, __FILE__, __LINE__);
+	}
 
 	/* Old Code
 	DX8CALL(CreateVertexBuffer(

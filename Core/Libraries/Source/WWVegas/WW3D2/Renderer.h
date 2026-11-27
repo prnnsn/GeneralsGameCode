@@ -40,6 +40,8 @@ class VertexBufferClass;
 class IndexBufferClass;
 class DynamicVBAccessClass;
 class DynamicIBAccessClass;
+class RefCountClass;
+namespace RenderBuffers { struct BufferDesc; }
 
 struct RenderViewport
 {
@@ -127,6 +129,30 @@ public:
     static void Set_Index_Buffer(const IndexBufferClass * ib, unsigned short index_base_offset);
     static void Set_Index_Buffer(const DynamicIBAccessClass & iba, unsigned short index_base_offset);
     static void Set_Index_Buffer_Index_Offset(unsigned offset);
+
+    // The returned W3D object owns one reference. Use the usual Release_Ref.
+    static VertexBufferClass * Create_Rewritable_Vertex_Buffer(const RenderBuffers::BufferDesc & desc);
+    static IndexBufferClass * Create_Rewritable_Index_Buffer(const RenderBuffers::BufferDesc & desc);
+
+    class BufferWrite
+    {
+    public:
+        BufferWrite(VertexBufferClass * buffer, unsigned first, unsigned count);
+        BufferWrite(IndexBufferClass * buffer, unsigned first, unsigned count);
+        ~BufferWrite();
+
+        BufferWrite(const BufferWrite &) = delete;
+        BufferWrite & operator=(const BufferWrite &) = delete;
+
+        void * Data() const { return data; }
+        // Call Finish before publishing the data. The destructor cleans up an unfinished map.
+        bool Finish();
+
+    private:
+        RefCountClass * owner = nullptr;
+        void * data = nullptr;
+        bool (*finish)(RefCountClass *) = nullptr;
+    };
 
     static void Set_Transform(RenderTransform transform, const Matrix4x4 & m);
     static void Set_Transform(RenderTransform transform, const Matrix3D & m);

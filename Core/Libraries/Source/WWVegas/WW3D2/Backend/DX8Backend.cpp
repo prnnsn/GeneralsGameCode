@@ -22,6 +22,8 @@
 
 #include "WW3D2/Renderer.h"
 
+#include "WW3D2/Backend/DX8ManagedBufferWrite.h"
+#include "WW3D2/Backend/DX8VertexLayout.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
 #include "WWMath/vector3.h"
@@ -320,6 +322,113 @@ void Renderer::Set_Index_Buffer(const DynamicIBAccessClass & iba, unsigned short
 void Renderer::Set_Index_Buffer_Index_Offset(unsigned offset)
 {
     DX8Wrapper::Set_Index_Buffer_Index_Offset(offset);
+}
+
+static bool Can_Create_Rewritable_Buffer(const RenderBuffers::BufferDesc & desc, RenderBuffers::Role role)
+{
+    using namespace RenderBuffers;
+    std::uint32_t bytes;
+    return DX8Wrapper::_Get_D3D_Device8() && desc.role == role && desc.storage == Storage::Gpu &&
+           desc.update == Update::Rewritable && desc.recreation == Recreation::Regenerate &&
+           TryBufferSize(desc, bytes);
+}
+
+VertexBufferClass * Renderer::Create_Rewritable_Vertex_Buffer(const RenderBuffers::BufferDesc & desc)
+{
+    using namespace RenderBuffers;
+    if (!Can_Create_Rewritable_Buffer(desc, Role::Vertex))
+        return nullptr;
+
+    // XYZDUV1 is the first migrated producer. Compare the layout before passing its FVF to DX8.
+    VertexLayout expected;
+    if (!DX8VertexLayout::TryDecode(DX8_FVF_XYZDUV1, desc.stride_bytes, expected) ||
+        desc.layout.count != expected.count)
+        return nullptr;
+    for (unsigned i = 0; i < expected.count; ++i)
+    {
+        const Attribute & actual = desc.layout.attributes[i];
+        const Attribute & native = expected.attributes[i];
+        if (actual.semantic != native.semantic || actual.semantic_index != native.semantic_index ||
+            actual.type != native.type || actual.byte_offset != native.byte_offset)
+            return nullptr;
+    }
+
+    auto * buffer = NEW_REF(DX8VertexBufferClass, (DX8_FVF_XYZDUV1, static_cast<unsigned short>(desc.element_count),
+                                                  DX8VertexBufferClass::USAGE_DEFAULT, false));
+    if (!buffer->Get_DX8_Vertex_Buffer())
+        REF_PTR_RELEASE(buffer);
+    return buffer;
+}
+
+IndexBufferClass * Renderer::Create_Rewritable_Index_Buffer(const RenderBuffers::BufferDesc & desc)
+{
+    if (!Can_Create_Rewritable_Buffer(desc, RenderBuffers::Role::Index))
+        return nullptr;
+    auto * buffer = NEW_REF(DX8IndexBufferClass, (static_cast<unsigned short>(desc.element_count),
+                                                 DX8IndexBufferClass::USAGE_DEFAULT, false));
+    if (!buffer->Get_DX8_Index_Buffer())
+        REF_PTR_RELEASE(buffer);
+    return buffer;
+}
+
+Renderer::BufferWrite::BufferWrite(VertexBufferClass * buffer, unsigned first, unsigned count)
+{
+    if (!buffer || buffer->Type() != BUFFER_TYPE_DX8 || !DX8Wrapper::_Get_D3D_Device8())
+        return;
+    DX8_THREAD_ASSERT();
+    WWASSERT(!buffer->Engine_Refs());
+    DX8_Assert();
+    buffer->Add_Ref();
+    data = DX8ManagedBufferWrite::Lock(static_cast<DX8VertexBufferClass *>(buffer)->Get_DX8_Vertex_Buffer(),
+        buffer->Get_Vertex_Count(), buffer->FVF_Info().Get_FVF_Size(), first, count, true);
+    if (!data)
+    {
+        buffer->Release_Ref();
+        return;
+    }
+    owner = buffer;
+    finish = [](RefCountClass * ref) {
+        return DX8ManagedBufferWrite::Unlock(*static_cast<DX8VertexBufferClass *>(ref)->Get_DX8_Vertex_Buffer());
+    };
+}
+
+Renderer::BufferWrite::BufferWrite(IndexBufferClass * buffer, unsigned first, unsigned count)
+{
+    if (!buffer || buffer->Type() != BUFFER_TYPE_DX8 || !DX8Wrapper::_Get_D3D_Device8())
+        return;
+    DX8_THREAD_ASSERT();
+    WWASSERT(!buffer->Engine_Refs());
+    DX8_Assert();
+    buffer->Add_Ref();
+    data = DX8ManagedBufferWrite::Lock(static_cast<DX8IndexBufferClass *>(buffer)->Get_DX8_Index_Buffer(),
+        buffer->Get_Index_Count(), sizeof(WORD), first, count, false);
+    if (!data)
+    {
+        buffer->Release_Ref();
+        return;
+    }
+    owner = buffer;
+    finish = [](RefCountClass * ref) {
+        return DX8ManagedBufferWrite::Unlock(*static_cast<DX8IndexBufferClass *>(ref)->Get_DX8_Index_Buffer());
+    };
+}
+
+Renderer::BufferWrite::~BufferWrite()
+{
+    if (owner)
+        Finish();
+}
+
+bool Renderer::BufferWrite::Finish()
+{
+    if (!owner)
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    data = nullptr;
+    const bool result = finish(owner);
+    REF_PTR_RELEASE(owner);
+    return result;
 }
 
 void Renderer::Set_Transform(RenderTransform transform, const Matrix4x4 & m)

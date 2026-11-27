@@ -207,6 +207,7 @@ public:
 	};
 
 	DX8VertexBufferClass(unsigned FVF, unsigned short VertexCount, UsageType usage=USAGE_DEFAULT);
+	DX8VertexBufferClass(unsigned FVF, unsigned short VertexCount, UsageType usage, bool assert_on_failure);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector3* normals, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector3* normals, const Vector4* diffuse, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
 	DX8VertexBufferClass(const Vector3* vertices, const Vector4* diffuse, const Vector2* tex_coords, unsigned short VertexCount,UsageType usage=USAGE_DEFAULT);
@@ -224,7 +225,7 @@ public:
 protected:
 	IDirect3DVertexBuffer8*		VertexBuffer;
 
-	void Create_Vertex_Buffer(UsageType usage);
+	void Create_Vertex_Buffer(UsageType usage, bool assert_on_failure=true);
 };
 
 
