@@ -6,6 +6,8 @@ work in this fork. It does not replace upstream contribution policies.
 
 ## GFX priority: DX11 first
 
+See [the GFX roadmap](docs/gfx-roadmap.md) for stage dependencies and review gates.
+
 Decision recorded 2026-11-27. Until the project has a stable, validated DX11
 renderer, prioritize the GFX 13 roadmap (renderer abstraction, resource
 abstraction, and DX11 backend) over non-urgent DX8-specific optimizations.
