@@ -36,7 +36,11 @@
  * 08/05/02 KM Texture class redesign (revisited)
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#include <atomic>
+#include <utility>
+
 #include "textureloader.h"
+#include "RenderTexture.h"
 #include "WWLib/mutex.h"
 #include "WWLib/thread.h"
 #include "WWDebug/wwdebug.h"
@@ -60,6 +64,11 @@
 
 bool TextureLoader::TextureLoadSuspended;
 int TextureLoader::TextureInactiveOverrideTime = 0;
+
+// Keep worker-produced DDS payloads bounded while the render queue is paused.
+// An in-flight texture can exceed this threshold and must finish before waiting.
+static constexpr unsigned PackedDDSQueueThreshold = 16 * 1024 * 1024;
+static std::atomic<std::size_t> PendingPackedDDSBytes{0};
 
 #define USE_MANAGED_TEXTURES
 
@@ -972,8 +981,9 @@ void TextureLoader::Load_Thumbnail(TextureBaseClass *tc)
 void LoaderThreadClass::Thread_Function()
 {
 	while (running) {
-		// if there are no tasks on the background queue, no need to grab background lock.
-		if (!_BackgroundQueue.Is_Empty()) {
+		// Backpressure only gates the worker. Foreground demand loads can still finish.
+		if (PendingPackedDDSBytes.load(std::memory_order_relaxed) < PackedDDSQueueThreshold &&
+			!_BackgroundQueue.Is_Empty()) {
 			// Grab background load so other threads know we could be
 			// loading a texture.
 			FastCriticalSectionClass::LockClass lock(_BackgroundCriticalSection);
@@ -1146,6 +1156,8 @@ void TextureLoadTaskClass::Init(TextureBaseClass* tc, TaskType type, PriorityTyp
 
 void TextureLoadTaskClass::Deinit()
 {
+	Release_Packed_DDS();
+
 	// task should not be on any list when it is being detached from texture.
 	WWASSERT(Next == nullptr);
 	WWASSERT(Prev == nullptr);
@@ -1236,9 +1248,24 @@ bool TextureLoadTaskClass::Load()
 }
 
 
+void TextureLoadTaskClass::Release_Packed_DDS()
+{
+	if (PackedDDS) {
+		const unsigned bytes = PackedDDS->byte_count;
+		PackedDDS.reset();
+		PendingPackedDDSBytes.fetch_sub(bytes, std::memory_order_relaxed);
+	}
+}
+
+
 void TextureLoadTaskClass::End_Load()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
+
+	if (PackedDDS) {
+		PackedDDS->CopyTo(LockedSurfacePtr, LockedSurfacePitch);
+		Release_Packed_DDS();
+	}
 
 	Unlock_Surfaces();
 	Apply(true);
@@ -1679,11 +1706,21 @@ bool TextureLoadTaskClass::Load_Compressed_Mipmap()
 
 	if (HSVShift[0] == 0.0f && HSVShift[1] == 0.0f && HSVShift[2] == 0.0f)
 	{
-		const auto packed = dds_file.Try_Load_Packed_2D(
-			Get_Format(), Get_Width(), Get_Height(), Get_Mip_Level_Count(),
-			LockedSurfacePtr, LockedSurfacePitch);
-		if (packed != DDSFileClass::PackedLoadResult::Ineligible)
-			return packed == DDSFileClass::PackedLoadResult::Loaded;
+		RenderTextures::PackedDDSData data;
+		const auto result = dds_file.Try_Read_Packed_2D(
+			Get_Format(), Get_Width(), Get_Height(), Get_Mip_Level_Count(), data);
+		if (result == DDSFileClass::PackedLoadResult::Loaded) {
+			// The pitches are stable until End_Load unlocks these surfaces.
+			// Check them now so a failed packed load can still take the usual fallback.
+			if (!data.CanCopyTo(LockedSurfacePtr, LockedSurfacePitch))
+				return false;
+
+			PackedDDS = std::make_unique<RenderTextures::PackedDDSData>(std::move(data));
+			PendingPackedDDSBytes.fetch_add(PackedDDS->byte_count, std::memory_order_relaxed);
+			return true;
+		}
+		if (result == DDSFileClass::PackedLoadResult::Failed)
+			return false;
 	}
 
 	// if we can't load from file, indicate error.
