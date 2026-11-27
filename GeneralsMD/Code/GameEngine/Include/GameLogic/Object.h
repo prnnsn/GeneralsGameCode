@@ -749,6 +749,8 @@ private:
 
 	// modules
 	BehaviorModule**							m_behaviors;	// BehaviorModule, not BehaviorModuleInterface
+	mutable BehaviorModule* m_lastFoundBehavior;
+	Bool m_behaviorNameCacheReady;
 
 	// cache these, for convenience
 	ContainModuleInterface*				m_contain;

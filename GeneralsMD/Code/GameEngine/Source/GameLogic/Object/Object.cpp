@@ -189,6 +189,8 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	m_xferContainedByID(INVALID_ID),
 	m_containedByFrame(0),
 	m_behaviors(nullptr),
+	m_lastFoundBehavior(nullptr),
+	m_behaviorNameCacheReady(false),
 	m_body(nullptr),
 	m_contain(nullptr),
   m_stealth(nullptr),
@@ -488,6 +490,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 
 	//Modules have now been completely created!
 	m_modulesReady = true;
+	m_behaviorNameCacheReady = true;
 
 	TheRadar->addObject( this );
 
@@ -598,6 +601,8 @@ void Object::initObject()
 //-------------------------------------------------------------------------------------------------
 Object::~Object()
 {
+	m_behaviorNameCacheReady = false;
+	m_lastFoundBehavior = nullptr;
 
 	// tell the AI the building is gone
 	/// @todo Generalize the notion of objects entering and leaving the world, so we don't have to special case this
@@ -2956,6 +2961,10 @@ void Object::calcNaturalRallyPoint(Coord2D *pt)
 //-------------------------------------------------------------------------------------------------
 Module* Object::findModule(NameKeyType key) const
 {
+#ifndef INTENSE_DEBUG
+	if (m_behaviorNameCacheReady && m_lastFoundBehavior && m_lastFoundBehavior->getModuleNameKey() == key)
+		return m_lastFoundBehavior;
+#endif
 	Module* m = nullptr;
 
 	for (BehaviorModule** b = m_behaviors; *b; ++b)
@@ -2973,6 +2982,8 @@ Module* Object::findModule(NameKeyType key) const
 			}
 #else
 			m = *b;
+			if (m_behaviorNameCacheReady)
+				m_lastFoundBehavior = *b;
 			break;
 #endif
 		}
