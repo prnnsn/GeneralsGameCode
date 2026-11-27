@@ -22,12 +22,15 @@
 
 #include "WW3D2/Renderer.h"
 
+#include <memory>
+
 #include "WW3D2/Backend/DX8ManagedBufferWrite.h"
 #include "WW3D2/Backend/DX8StreamingBufferWrite.h"
 #include "WW3D2/Backend/DX8TextureMipWrite.h"
 #include "WW3D2/Backend/DX8VertexLayout.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
+#include "WW3D2/surfaceclass.h"
 #include "WW3D2/texture.h"
 #include "WWMath/vector3.h"
 #include "WWLib/thread.h"
@@ -236,6 +239,48 @@ bool Renderer::Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned cha
     WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
     auto * native = static_cast<IDirect3DTexture8 *>(texture.value);
     return DX8TextureMipWrite::Unlock(*native, data, pitch, mip_count);
+}
+
+SurfaceClass * Renderer::Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip)
+{
+    auto * native = texture.Peek_D3D_Texture();
+    if (!native)
+        return nullptr;
+
+    IDirect3DSurface8 * surface = nullptr;
+    const HRESULT result = native->GetSurfaceLevel(mip, &surface);
+    if (FAILED(result) || !surface)
+    {
+        Non_Fatal_Log_DX8_ErrorCode(FAILED(result) ? result : E_FAIL, __FILE__, __LINE__);
+        return nullptr;
+    }
+
+    // SurfaceClass retains its own reference. Balance the query reference
+    // even if allocation or construction of the wrapper throws.
+    const auto release = [](IDirect3DSurface8 * acquired) { acquired->Release(); };
+    const std::unique_ptr<IDirect3DSurface8, decltype(release)> query_ref(surface, release);
+    return new SurfaceClass(query_ref.get());
+}
+
+bool Renderer::Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
+                                            unsigned & width, unsigned & height, WW3DFormat & format)
+{
+    auto * native = texture.Peek_D3D_Texture();
+    if (!native)
+        return false;
+
+    D3DSURFACE_DESC desc = {};
+    const HRESULT result = native->GetLevelDesc(mip, &desc);
+    if (FAILED(result))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+        return false;
+    }
+
+    width = desc.Width;
+    height = desc.Height;
+    format = D3DFormat_To_WW3DFormat(desc.Format);
+    return true;
 }
 
 static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)
