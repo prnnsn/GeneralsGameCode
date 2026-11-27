@@ -34,6 +34,7 @@
 #include "WW3D2/formconv.h"
 #include "WW3D2/surfaceclass.h"
 #include "WW3D2/texture.h"
+#include "d3dx8tex.h"
 #include "WWMath/vector3.h"
 #include "WWLib/thread.h"
 #include "WW3D2/lightenvironment.h"
@@ -717,4 +718,20 @@ void Renderer::Clear_Light(unsigned index)
 void Renderer::Set_Fog(bool enable, const Vector3 & color, float start, float end)
 {
     DX8Wrapper::Set_Fog(enable, color, start, end);
+}
+
+
+bool Renderer::Filter_Terrain_Texture_Mips(const TextureClass & texture, unsigned reduction)
+{
+    DX8_THREAD_ASSERT();
+    auto *native = texture.Peek_D3D_Texture();
+    if (!native) return false;
+    const HRESULT result = D3DXFilterTexture(native, nullptr, 0, D3DX_FILTER_BOX);
+    if (FAILED(result))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+        return false;
+    }
+    if (reduction) native->SetLOD(reduction);
+    return true;
 }

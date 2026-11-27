@@ -153,6 +153,8 @@ public:
     };
 
     // Zero the active bytes of an uncompressed mip while preserving row padding.
+    // Preserve the DX8 box filter and optional legacy LOD update.
+    static bool Filter_Terrain_Texture_Mips(const TextureClass & texture, unsigned reduction);
     static bool Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip = 0);
 
     // Set addressing and border colour for one sampler. Colour is packed ARGB.

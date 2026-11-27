@@ -246,3 +246,41 @@ TEST(RenderTexture, PaddedRowsUseOnlyRequiredBytes)
     EXPECT_FALSE(TryRowSpan({ 1, 1, 8, 0 }, 32, 32, bytes));
     EXPECT_EQ(80u, bytes);
 }
+
+
+#include "WW3D2/TerrainAtlasWrite.h"
+
+TEST(TerrainAtlasWrite, WrappedBorderPreservesPaddingAndOrientation)
+{
+    // 4x4 tile with four pixels of wrapped border each side.
+    std::array<unsigned char, 12*28> bytes;
+    bytes.fill(0xcd);
+    std::array<unsigned char, 4*4*4> src = {};
+    for (unsigned y=0;y<4;++y)
+        for (unsigned x=0;x<4;++x)
+            src[(y*4+x)*4] = static_cast<unsigned char>((y*4+x)*8);
+    ASSERT_TRUE(TerrainAtlas::WriteTile(bytes.data(),12,12,28,bytes.size(),4,4,4,src.data(),src.size()));
+    ASSERT_TRUE(TerrainAtlas::WrapBorder(bytes.data(),12,12,28,bytes.size(),4,4,4));
+    for(unsigned y=0;y<12;++y)
+    {
+        for(unsigned x=0;x<12;++x)
+        {
+            EXPECT_EQ((3-y%4)*4+x%4, bytes[y*28+x*2]);
+            EXPECT_EQ(0x80, bytes[y*28+x*2+1]);
+        }
+        for(unsigned x=24;x<28;++x) EXPECT_EQ(0xcd,bytes[y*28+x]);
+    }
+}
+
+TEST(TerrainAtlasWrite, RejectsInvalidRectanglesAndShortSource)
+{
+    std::array<unsigned char, 12*24> bytes;
+    bytes.fill(0xcd);
+    std::array<unsigned char, 64> source = {};
+    const auto original = bytes;
+    EXPECT_FALSE(TerrainAtlas::WriteTile(bytes.data(),12,12,24,bytes.size(),-1,0,4,source.data(),source.size()));
+    EXPECT_FALSE(TerrainAtlas::WriteTile(bytes.data(),12,12,24,bytes.size(),0,0,4,source.data(),63));
+    EXPECT_FALSE(TerrainAtlas::WrapBorder(bytes.data(),12,12,24,bytes.size(),3,4,4));
+    EXPECT_FALSE(TerrainAtlas::WrapBorder(bytes.data(),12,12,24,bytes.size()-1,4,4,4));
+    EXPECT_EQ(original,bytes);
+}
