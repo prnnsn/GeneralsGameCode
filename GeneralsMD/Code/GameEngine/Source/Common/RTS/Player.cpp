@@ -481,6 +481,7 @@ void Player::init(const PlayerTemplate* pt)
 	resetRank();
 	m_sciencesDisabled.clear();
 	m_sciencesHidden.clear();
+	m_specialPowerTimerIndex.clear();
 	m_specialPowerReadyTimerList.clear();
 
 	KindOfPercentProductionChangeListIt it = m_kindOfPercentProductionChangeList.begin();
@@ -3318,46 +3319,32 @@ void Player::addNewSharedSpecialPowerTimer( const SpecialPowerTemplate *temp, Un
 	newTimer.m_templateID = temp->getID();
 	newTimer.m_readyFrame = frame;
 	m_specialPowerReadyTimerList.push_back( newTimer );
+	m_specialPowerTimerIndex.insert(std::make_pair(newTimer.m_templateID, &m_specialPowerReadyTimerList.back()));
 
 }
 
 void Player::resetOrStartSpecialPowerReadyFrame( const SpecialPowerTemplate *temp )
 {
-
-	UnsignedInt lookupID = temp->getID();
-	UnsignedInt now = TheGameLogic->getFrame();
-
-	SpecialPowerReadyTimerType *timer;
-	SpecialPowerReadyTimerListIterator it;
-	for( it = m_specialPowerReadyTimerList.begin(); it != m_specialPowerReadyTimerList.end(); ++it )
+	const UnsignedInt now = TheGameLogic->getFrame();
+	SpecialPowerTimerIndex::iterator it = m_specialPowerTimerIndex.find(temp->getID());
+	if (it != m_specialPowerTimerIndex.end())
 	{
-		timer = &(*it);
-		if ( timer->m_templateID == lookupID )
-		{
-			timer->m_readyFrame = now + temp->getReloadTime();
-			return;
-		}
+		it->second->m_readyFrame = now + temp->getReloadTime();
+		return;
 	}
-
-	addNewSharedSpecialPowerTimer( temp, now );
+	addNewSharedSpecialPowerTimer(temp, now);
 }
 
 
 void Player::expressSpecialPowerReadyFrame( const SpecialPowerTemplate *temp, UnsignedInt frame )
 {
-	SpecialPowerReadyTimerType *timer;
-	SpecialPowerReadyTimerListIterator it;
-	for( it = m_specialPowerReadyTimerList.begin(); it != m_specialPowerReadyTimerList.end(); ++it )
+	SpecialPowerTimerIndex::iterator it = m_specialPowerTimerIndex.find(temp->getID());
+	if (it != m_specialPowerTimerIndex.end())
 	{
-		timer = &(*it);
-		if ( timer->m_templateID == temp->getID() )
-		{
-			timer->m_readyFrame = frame;
-			return;
-		}
+		it->second->m_readyFrame = frame;
+		return;
 	}
-
-	addNewSharedSpecialPowerTimer( temp, frame );
+	addNewSharedSpecialPowerTimer(temp, frame);
 }
 
 
@@ -3367,33 +3354,12 @@ void Player::expressSpecialPowerReadyFrame( const SpecialPowerTemplate *temp, Un
 //-------------------------------------------------------------------------------------------------
 UnsignedInt Player::getOrStartSpecialPowerReadyFrame( const SpecialPowerTemplate *temp)
 {
-
-	UnsignedInt lookupID = temp->getID();
-	UnsignedInt now = TheGameLogic->getFrame();
-
-	SpecialPowerReadyTimerType *timer;
-	SpecialPowerReadyTimerListIterator it;
-
-
-	UnsignedInt count = 0;
-	UnsignedInt timerID = 0xfacade;
-
-	for( it = m_specialPowerReadyTimerList.begin(); it != m_specialPowerReadyTimerList.end(); ++it )
-	{
-		timer = &(*it);
-		++count;
-
-		timerID = timer->m_templateID;
-
-		if ( timerID == lookupID )
-		{
-			return timer->m_readyFrame;
-		}
-	}
-
-	addNewSharedSpecialPowerTimer( temp, now );
+	const UnsignedInt now = TheGameLogic->getFrame();
+	SpecialPowerTimerIndex::const_iterator it = m_specialPowerTimerIndex.find(temp->getID());
+	if (it != m_specialPowerTimerIndex.end())
+		return it->second->m_readyFrame;
+	addNewSharedSpecialPowerTimer(temp, now);
 	return now;
-
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -4461,7 +4427,8 @@ void Player::xfer( Xfer *xfer )
 	///////////////////////////////////////////////////////////////////////////
 	if ( version < 4 )
 	{
-		 m_specialPowerReadyTimerList.clear();
+		 m_specialPowerTimerIndex.clear();
+	m_specialPowerReadyTimerList.clear();
 	}
 	else
 	{
@@ -4498,6 +4465,7 @@ void Player::xfer( Xfer *xfer )
 
 				// put at end of list
 				m_specialPowerReadyTimerList.push_back( timer );
+				m_specialPowerTimerIndex.insert(std::make_pair(timer.m_templateID, &m_specialPowerReadyTimerList.back()));
 
 			}
 		}
