@@ -484,6 +484,7 @@ public:
 	UnsignedInt getMostPercentReadyToFireAnyWeapon() const;
 
 	Weapon* getWeaponInWeaponSlot(WeaponSlotType wslot) const { return m_weaponSet.getWeaponInWeaponSlot(wslot); }
+	Int nextOccupiedWeaponSlot(Int after) const { return m_weaponSet.nextOccupiedWeaponSlot(after); }
 	UnsignedInt getWeaponInWeaponSlotCommandSourceMask( WeaponSlotType wSlot ) const { return m_weaponSet.getNthCommandSourceMask( wSlot ); }
 
 	// see if this current weapon set's weapons has shared reload times

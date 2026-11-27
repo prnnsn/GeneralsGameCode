@@ -1331,7 +1331,7 @@ Bool Object::hasWeaponToDealDamageType(DamageType typeToDeal) const
 Real Object::getLargestWeaponRange() const
 {
 	Real retVal = -1;
-	for (Int i = PRIMARY_WEAPON; i < WEAPONSLOT_COUNT; ++i) {
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i)) {
 		Weapon* weapon = m_weaponSet.getWeaponInWeaponSlot((WeaponSlotType)i);
 		if (!weapon) {
 			continue;
@@ -1606,7 +1606,7 @@ void Object::preFireCurrentWeapon( const Object *victim )
 UnsignedInt Object::getLastShotFiredFrame() const
 {
 	UnsignedInt recent = 0;
-	for (int i = 0; i < WEAPONSLOT_COUNT; ++i)
+	for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 	{
 		const Weapon* w = m_weaponSet.getWeaponInWeaponSlot((WeaponSlotType)i);
 		if (w)
@@ -3340,7 +3340,7 @@ Bool Object::isAbleToAttack() const
 	const AIUpdateInterface *ai = getAI();
 	if( ai && !isKindOf( KINDOF_CAN_ATTACK ) )
 	{
-		for( Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+		for (Int i = nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = nextOccupiedWeaponSlot(i))
 		{
 			//Find the weapon in this slot.
 			Weapon* weapon = getWeaponInWeaponSlot( (WeaponSlotType)i );

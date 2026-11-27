@@ -837,9 +837,8 @@ void TurretAI::getOtherTurretWeaponInfo(Int& numSelf, Int& numSelfReloading, Int
 Bool TurretAI::friend_isAnyWeaponInRangeOf(const Object* o) const
 {
 	// see if we've moved out of range, and if so, nuke the target.
-	for (Int i = 0; i < WEAPONSLOT_COUNT;	i++ )
+	for (Int i = getOwner()->nextOccupiedWeaponSlot(-1); i < WEAPONSLOT_COUNT; i = getOwner()->nextOccupiedWeaponSlot(i))
 	{
-		// ignore empty slots.
 		const Weapon* w = getOwner()->getWeaponInWeaponSlot((WeaponSlotType)i);
 		if (w == nullptr || !isWeaponSlotOnTurret((WeaponSlotType)i))
 			continue;
