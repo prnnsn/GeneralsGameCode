@@ -902,8 +902,8 @@ Try improving the fit to vertical surfaces like cliffs.
 		ShaderClass::Invalidate();
 		Renderer::Set_Material(m_vertexMaterialClass);
 		Renderer::Set_Shader(m_shaderClass);
-		DX8Wrapper::Set_Index_Buffer(m_indexBuffer,0);
-		DX8Wrapper::Set_Vertex_Buffer(m_vertexBuffer);
+		Renderer::Set_Index_Buffer(m_indexBuffer,0);
+		Renderer::Set_Vertex_Buffer(m_vertexBuffer);
 
 		trackStartIndex=0;
 		mod=m_usedModules;
@@ -913,7 +913,7 @@ Try improving the fit to vertical surfaces like cliffs.
 			if (mod->m_activeEdgeCount >= 2 && mod->Is_Really_Visible())
 			{
 				Renderer::Set_Texture(0,mod->m_stageZeroTexture);
-				DX8Wrapper::Set_Index_Buffer_Index_Offset(trackStartIndex);
+				Renderer::Set_Index_Buffer_Index_Offset(trackStartIndex);
 				Renderer::Draw_Triangles(	0,(mod->m_activeEdgeCount-1)*2, 0, mod->m_activeEdgeCount*2);
 
 				trackStartIndex += mod->m_activeEdgeCount*2;
