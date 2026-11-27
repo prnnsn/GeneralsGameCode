@@ -37,6 +37,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include "texture.h"
+#include "Renderer.h"
 
 #include <d3d8.h>
 #include <d3dx8core.h>
@@ -970,18 +971,7 @@ void TextureClass::Apply(unsigned int stage)
 */
 SurfaceClass *TextureClass::Get_Surface_Level(unsigned int level) const
 {
-	if (!Peek_D3D_Texture())
-	{
-		WWASSERT_PRINT(0, "Get_Surface_Level: D3DTexture is null!");
-		return nullptr;
-	}
-
-	IDirect3DSurface8 *d3d_surface = nullptr;
-	DX8_ErrorCode(Peek_D3D_Texture()->GetSurfaceLevel(level, &d3d_surface));
-	SurfaceClass *surface = new SurfaceClass(d3d_surface);
-	d3d_surface->Release();
-
-	return surface;
+	return Renderer::Get_Texture_2D_Mip_Surface(*this, level);
 }
 
 //**********************************************************************************************
@@ -990,11 +980,7 @@ SurfaceClass *TextureClass::Get_Surface_Level(unsigned int level) const
 */
 void TextureClass::Get_Level_Description( SurfaceClass::SurfaceDescription & desc, unsigned int level )
 {
-	SurfaceClass * surf = Get_Surface_Level(level);
-	if (surf != nullptr) {
-		surf->Get_Description(desc);
-	}
-	REF_PTR_RELEASE(surf);
+	Renderer::Try_Describe_Texture_2D_Mip(*this, level, desc.Width, desc.Height, desc.Format);
 }
 
 //**********************************************************************************************

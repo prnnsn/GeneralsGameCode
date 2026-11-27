@@ -35,6 +35,8 @@ class Matrix4x4;
 class Vector3;
 class ShaderClass;
 class TextureBaseClass;
+class TextureClass;
+class SurfaceClass;
 class VertexMaterialClass;
 class VertexBufferClass;
 class IndexBufferClass;
@@ -124,6 +126,12 @@ public:
                                         unsigned * pitch, unsigned capacity);
     static bool Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
                                       unsigned * pitch, unsigned mip_count);
+
+    // The caller owns one SurfaceClass reference. Use the usual Release_Ref.
+    static SurfaceClass * Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip);
+    // On failure the output arguments keep their previous values.
+    static bool Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
+                                            unsigned & width, unsigned & height, WW3DFormat & format);
 
     // Set addressing and border colour for one sampler. Colour is packed ARGB.
     enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
