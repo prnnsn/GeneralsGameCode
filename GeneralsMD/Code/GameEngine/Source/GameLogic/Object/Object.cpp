@@ -2519,7 +2519,7 @@ void Object::updateTriggerAreaFlags()
 //-------------------------------------------------------------------------------------------------
 void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal )
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_collisionBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_collisionBehaviorMask))
 	{
 		CollideModuleInterface* collide = (*m)->getCollide();
 		if (!collide)
@@ -2543,7 +2543,7 @@ void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal
 //-------------------------------------------------------------------------------------------------
 Bool Object::isSalvageCrate() const
 {
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_collisionBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_collisionBehaviorMask))
 	{
 		CollideModuleInterface* collide = (*m)->getCollide();
 		if( collide && collide->isSalvageCrateCollide() )
