@@ -11,6 +11,7 @@ set(COREI_GOOGLETEST_SRC
     Libraries/Compression/CompressionManagerTest.cpp
     Libraries/WWVegas/WW3D2/DX8VertexLayoutTest.cpp
     Libraries/WWVegas/WW3D2/RenderBufferTest.cpp
+    Libraries/WWVegas/WW3D2/RenderTextureTest.cpp
     Libraries/WWVegas/WW3D2/TextureAtlasTest.cpp
     Libraries/WWVegas/WW3D2/hlod_test.cpp
     Libraries/WWVegas/WW3D2/soundrobj_test.cpp

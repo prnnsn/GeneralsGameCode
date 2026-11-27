@@ -269,6 +269,13 @@ public:
 		unsigned source_y,					// DDS y offset to copy from, must be aligned by 4!
 		const Vector3& hsv_shift=Vector3(0.0f,0.0f,0.0f)) const;
 
+	enum class PackedLoadResult { Ineligible, Failed, Loaded };
+
+	// Opt-in for locked 2D surfaces with a matching DXT format and no tint.
+	PackedLoadResult Try_Load_Packed_2D(
+		WW3DFormat dest_format, unsigned width, unsigned height, unsigned mip_count,
+		unsigned char * const * dest_surfaces, const unsigned * dest_pitches) const;
+
 	bool Load();
 	bool Is_Available() const { return !!LevelSizes; }
 };

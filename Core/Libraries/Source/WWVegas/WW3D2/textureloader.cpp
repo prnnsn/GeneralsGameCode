@@ -1677,6 +1677,15 @@ bool TextureLoadTaskClass::Load_Compressed_Mipmap()
 {
 	DDSFileClass dds_file(Texture->Get_Full_Path(), Get_Reduction());
 
+	if (HSVShift[0] == 0.0f && HSVShift[1] == 0.0f && HSVShift[2] == 0.0f)
+	{
+		const auto packed = dds_file.Try_Load_Packed_2D(
+			Get_Format(), Get_Width(), Get_Height(), Get_Mip_Level_Count(),
+			LockedSurfacePtr, LockedSurfacePitch);
+		if (packed != DDSFileClass::PackedLoadResult::Ineligible)
+			return packed == DDSFileClass::PackedLoadResult::Loaded;
+	}
+
 	// if we can't load from file, indicate error.
 	if (!dds_file.Is_Available() || !dds_file.Load())
 	{
