@@ -1,0 +1,3 @@
+# GFX 13b.3j — checked terrain atlas update
+
+Supersedes the former 13b.3f brief after #101–107. Uses #105 single-mip mapping for TerrainTextureClass::update only. All tile and border rectangles are prevalidated; preserves bottom-up source, A1R5G5B5 packing and wrap border order, respects actual row pitch. Unmap before backend box filter/LOD; return 0 on failure. Other terrain texture writers remain unchanged. Review callers' handling of 0, format fallback and partial failure. New tests cover orientation, padding and invalid rectangles. Local agent must build both games/editors and compare real map atlas bytes and mip/LOD, reload, zoom and Alt+Tab. No engine build or game test claimed.

@@ -22,9 +22,21 @@
 
 #include "WW3D2/Renderer.h"
 
+#include <climits>
+#include <memory>
+
+#include "WW3D2/Backend/DX8ManagedBufferWrite.h"
+#include "WW3D2/Backend/DX8StreamingBufferWrite.h"
+#include "WW3D2/Backend/DX8TextureMipWrite.h"
+#include "WW3D2/Backend/DX8VertexLayout.h"
+#include "WW3D2/RenderTexture.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
+#include "WW3D2/surfaceclass.h"
+#include "WW3D2/texture.h"
+#include "d3dx8tex.h"
 #include "WWMath/vector3.h"
+#include "WWLib/thread.h"
 #include "WW3D2/lightenvironment.h"
 #include "WWDebug/wwdebug.h"
 
@@ -189,6 +201,182 @@ void Renderer::Set_Texture(unsigned stage, TextureBaseClass * texture)
     DX8Wrapper::Set_Texture(stage, texture);
 }
 
+RenderTexture2DHandle Renderer::Create_Load_Texture_2D(unsigned width, unsigned height,
+                                                       WW3DFormat format, unsigned mip_levels)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    return { DX8Wrapper::_Create_DX8_Texture(width, height, format,
+                                            static_cast<MipCountType>(mip_levels), D3DPOOL_MANAGED) };
+}
+
+void Renderer::Release_Texture_2D(RenderTexture2DHandle & texture)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    if (auto * native = static_cast<IDirect3DTexture8 *>(texture.value))
+    {
+        native->Release();
+        texture = {};
+    }
+}
+
+void Renderer::Apply_Load_Texture_2D(TextureBaseClass & target, RenderTexture2DHandle & texture,
+                                     bool initialize)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    WWASSERT(texture && target.Get_Asset_Type() == TextureBaseClass::TEX_REGULAR);
+    target.Apply_New_Surface(static_cast<IDirect3DTexture8 *>(texture.value), initialize);
+    Release_Texture_2D(texture);
+}
+
+unsigned Renderer::Map_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                       unsigned * pitch, unsigned capacity)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    auto * native = static_cast<IDirect3DTexture8 *>(texture.value);
+    return native ? DX8TextureMipWrite::Lock(*native, data, pitch, capacity) : 0;
+}
+
+bool Renderer::Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                     unsigned * pitch, unsigned mip_count)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    auto * native = static_cast<IDirect3DTexture8 *>(texture.value);
+    return DX8TextureMipWrite::Unlock(*native, data, pitch, mip_count);
+}
+
+namespace
+{
+struct DX8SurfaceRelease
+{
+    void operator()(IDirect3DSurface8 * surface) const { surface->Release(); }
+};
+using DX8SurfaceRef = std::unique_ptr<IDirect3DSurface8, DX8SurfaceRelease>;
+
+DX8SurfaceRef Acquire_Native_Mip_Surface(const TextureClass & texture, unsigned mip)
+{
+    auto * native = texture.Peek_D3D_Texture();
+    if (!native)
+        return {};
+
+    IDirect3DSurface8 * surface = nullptr;
+    const HRESULT result = native->GetSurfaceLevel(mip, &surface);
+    if (FAILED(result) || !surface)
+    {
+        Non_Fatal_Log_DX8_ErrorCode(FAILED(result) ? result : E_FAIL, __FILE__, __LINE__);
+        return {};
+    }
+
+    return DX8SurfaceRef(surface);
+}
+}
+
+SurfaceClass * Renderer::Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip)
+{
+    const auto surface = Acquire_Native_Mip_Surface(texture, mip);
+    // The wrapper retains a separate reference before the query reference is released.
+    return surface ? new SurfaceClass(surface.get()) : nullptr;
+}
+
+bool Renderer::Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
+                                            unsigned & width, unsigned & height, WW3DFormat & format)
+{
+    auto * native = texture.Peek_D3D_Texture();
+    if (!native)
+        return false;
+
+    D3DSURFACE_DESC desc = {};
+    const HRESULT result = native->GetLevelDesc(mip, &desc);
+    if (FAILED(result))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+        return false;
+    }
+
+    width = desc.Width;
+    height = desc.Height;
+    format = D3DFormat_To_WW3DFormat(desc.Format);
+    return true;
+}
+
+Renderer::TextureMipWrite::~TextureMipWrite()
+{
+    Finish();
+}
+
+bool Renderer::TextureMipWrite::Try_Begin(const TextureClass & texture, unsigned mip)
+{
+    if (native_surface)
+        return false;
+
+    auto surface = Acquire_Native_Mip_Surface(texture, mip);
+    if (!surface)
+        return false;
+
+    D3DSURFACE_DESC desc = {};
+    const HRESULT describe = surface->GetDesc(&desc);
+    if (FAILED(describe))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(describe, __FILE__, __LINE__);
+        return false;
+    }
+
+    const auto format = D3DFormat_To_WW3DFormat(desc.Format);
+    RenderTextures::FormatLayout storage;
+    RenderTextures::MipLayout layout;
+    if (!RenderTextures::TryFormatLayout(format, storage) ||
+        storage.block_width != 1 || storage.block_height != 1 ||
+        !RenderTextures::TryMipLayout({ desc.Width, desc.Height, 1, format }, 0, layout))
+        return false;
+
+    D3DLOCKED_RECT rect = {};
+    const HRESULT lock = surface->LockRect(&rect, nullptr, 0);
+    if (FAILED(lock))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(lock, __FILE__, __LINE__);
+        return false;
+    }
+
+    std::uint32_t span;
+    if (!rect.pBits || rect.Pitch <= 0 ||
+        !RenderTextures::TryRowSpan(layout, static_cast<unsigned>(rect.Pitch), INT_MAX, span))
+    {
+        const HRESULT unlock = surface->UnlockRect();
+        Non_Fatal_Log_DX8_ErrorCode(FAILED(unlock) ? unlock : E_FAIL, __FILE__, __LINE__);
+        return false;
+    }
+
+    view = { static_cast<unsigned char *>(rect.pBits), layout, static_cast<unsigned>(rect.Pitch),
+             span, storage.bytes_per_block, format };
+    native_surface = surface.release();
+    return true;
+}
+
+bool Renderer::TextureMipWrite::Finish()
+{
+    const DX8SurfaceRef surface(static_cast<IDirect3DSurface8 *>(native_surface));
+    native_surface = nullptr;
+    view = {};
+    if (!surface)
+        return true;
+
+    const HRESULT result = surface->UnlockRect();
+    if (FAILED(result))
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+    return SUCCEEDED(result);
+}
+
+bool Renderer::Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip)
+{
+    TextureMipWrite write;
+    if (!write.Try_Begin(texture, mip))
+        return false;
+
+    const auto & mapped = write.View();
+    const bool cleared = RenderTextures::TryClearRows(
+        mapped.layout, mapped.data, mapped.pitch, mapped.byte_count);
+    return write.Finish() && cleared;
+}
+
 static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)
 {
     switch (address)
@@ -322,6 +510,161 @@ void Renderer::Set_Index_Buffer_Index_Offset(unsigned offset)
     DX8Wrapper::Set_Index_Buffer_Index_Offset(offset);
 }
 
+static bool Can_Create_Rewritable_Buffer(const RenderBuffers::BufferDesc & desc, RenderBuffers::Role role)
+{
+    using namespace RenderBuffers;
+    std::uint32_t bytes;
+    return DX8Wrapper::_Get_D3D_Device8() && desc.role == role && desc.storage == Storage::Gpu &&
+           desc.update == Update::Rewritable && desc.recreation == Recreation::Regenerate &&
+           TryBufferSize(desc, bytes);
+}
+
+VertexBufferClass * Renderer::Create_Rewritable_Vertex_Buffer(const RenderBuffers::BufferDesc & desc)
+{
+    using namespace RenderBuffers;
+    if (!Can_Create_Rewritable_Buffer(desc, Role::Vertex))
+        return nullptr;
+
+    // XYZDUV1 is the first migrated producer. Compare the layout before passing its FVF to DX8.
+    VertexLayout expected;
+    if (!DX8VertexLayout::TryDecode(DX8_FVF_XYZDUV1, desc.stride_bytes, expected) ||
+        desc.layout.count != expected.count)
+        return nullptr;
+    for (unsigned i = 0; i < expected.count; ++i)
+    {
+        const Attribute & actual = desc.layout.attributes[i];
+        const Attribute & native = expected.attributes[i];
+        if (actual.semantic != native.semantic || actual.semantic_index != native.semantic_index ||
+            actual.type != native.type || actual.byte_offset != native.byte_offset)
+            return nullptr;
+    }
+
+    auto * buffer = NEW_REF(DX8VertexBufferClass, (DX8_FVF_XYZDUV1, static_cast<unsigned short>(desc.element_count),
+                                                  DX8VertexBufferClass::USAGE_DEFAULT, false));
+    if (!buffer->Get_DX8_Vertex_Buffer())
+        REF_PTR_RELEASE(buffer);
+    return buffer;
+}
+
+IndexBufferClass * Renderer::Create_Rewritable_Index_Buffer(const RenderBuffers::BufferDesc & desc)
+{
+    if (!Can_Create_Rewritable_Buffer(desc, RenderBuffers::Role::Index))
+        return nullptr;
+    auto * buffer = NEW_REF(DX8IndexBufferClass, (static_cast<unsigned short>(desc.element_count),
+                                                 DX8IndexBufferClass::USAGE_DEFAULT, false));
+    if (!buffer->Get_DX8_Index_Buffer())
+        REF_PTR_RELEASE(buffer);
+    return buffer;
+}
+
+bool Renderer::Upload_Dynamic_Vertices(DynamicVBAccessClass & access, const void * source, unsigned stride)
+{
+    auto * buffer = access.VertexBuffer;
+    if (access.Type != BUFFER_TYPE_DYNAMIC_DX8 || !buffer || !DX8Wrapper::_Get_D3D_Device8() ||
+        !source || stride != buffer->FVF_Info().Get_FVF_Size())
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    auto * native = static_cast<DX8VertexBufferClass *>(buffer)->Get_DX8_Vertex_Buffer();
+    const bool uploaded = DX8StreamingBufferWrite::Upload(native, buffer->Get_Vertex_Count(), stride,
+        access.VertexBufferOffset, access.VertexCount, source, D3DLOCK_NOSYSLOCK);
+    if (!uploaded)
+        access.Retire_DX8_Buffer();
+    return uploaded;
+}
+
+bool Renderer::Upload_Dynamic_Indices(DynamicIBAccessClass & access, const unsigned short * source)
+{
+    auto * buffer = access.IndexBuffer;
+    if (access.Type != BUFFER_TYPE_DYNAMIC_DX8 || !buffer || !DX8Wrapper::_Get_D3D_Device8() || !source)
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    auto * native = static_cast<DX8IndexBufferClass *>(buffer)->Get_DX8_Index_Buffer();
+    buffer->Add_Ref();
+    const bool uploaded = DX8StreamingBufferWrite::Upload(native, buffer->Get_Index_Count(), sizeof(WORD),
+        access.IndexBufferOffset, access.IndexCount, source, 0);
+    if (!uploaded)
+        access.Retire_DX8_Buffer();
+    buffer->Release_Ref();
+    return uploaded;
+}
+
+bool Renderer::Bind_Dynamic_Triangle_List(const DynamicVBAccessClass & vertices, const DynamicIBAccessClass & indices)
+{
+    if (vertices.Type != BUFFER_TYPE_DYNAMIC_DX8 || indices.Type != BUFFER_TYPE_DYNAMIC_DX8 ||
+        !vertices.VertexBuffer || !indices.IndexBuffer || indices.IndexCount % 3 != 0)
+        return false;
+    RenderBuffers::DrawOffsets offsets;
+    if (!RenderBuffers::TryDrawOffsets(vertices.VertexBufferOffset, 0, indices.IndexBufferOffset, 0, offsets) ||
+        !RenderBuffers::ValidIndexedDraw(offsets, RenderBuffers::Topology::TriangleList, indices.IndexCount / 3,
+            indices.IndexBuffer->Get_Index_Count(), 0, vertices.VertexCount, vertices.VertexBuffer->Get_Vertex_Count()))
+        return false;
+    Set_Index_Buffer(indices, 0);
+    Set_Vertex_Buffer(vertices);
+    return true;
+}
+
+Renderer::BufferWrite::BufferWrite(VertexBufferClass * buffer, unsigned first, unsigned count)
+{
+    if (!buffer || buffer->Type() != BUFFER_TYPE_DX8 || !DX8Wrapper::_Get_D3D_Device8())
+        return;
+    DX8_THREAD_ASSERT();
+    WWASSERT(!buffer->Engine_Refs());
+    DX8_Assert();
+    buffer->Add_Ref();
+    data = DX8ManagedBufferWrite::Lock(static_cast<DX8VertexBufferClass *>(buffer)->Get_DX8_Vertex_Buffer(),
+        buffer->Get_Vertex_Count(), buffer->FVF_Info().Get_FVF_Size(), first, count, true);
+    if (!data)
+    {
+        buffer->Release_Ref();
+        return;
+    }
+    owner = buffer;
+    finish = [](RefCountClass * ref) {
+        return DX8ManagedBufferWrite::Unlock(*static_cast<DX8VertexBufferClass *>(ref)->Get_DX8_Vertex_Buffer());
+    };
+}
+
+Renderer::BufferWrite::BufferWrite(IndexBufferClass * buffer, unsigned first, unsigned count)
+{
+    if (!buffer || buffer->Type() != BUFFER_TYPE_DX8 || !DX8Wrapper::_Get_D3D_Device8())
+        return;
+    DX8_THREAD_ASSERT();
+    WWASSERT(!buffer->Engine_Refs());
+    DX8_Assert();
+    buffer->Add_Ref();
+    data = DX8ManagedBufferWrite::Lock(static_cast<DX8IndexBufferClass *>(buffer)->Get_DX8_Index_Buffer(),
+        buffer->Get_Index_Count(), sizeof(WORD), first, count, false);
+    if (!data)
+    {
+        buffer->Release_Ref();
+        return;
+    }
+    owner = buffer;
+    finish = [](RefCountClass * ref) {
+        return DX8ManagedBufferWrite::Unlock(*static_cast<DX8IndexBufferClass *>(ref)->Get_DX8_Index_Buffer());
+    };
+}
+
+Renderer::BufferWrite::~BufferWrite()
+{
+    if (owner)
+        Finish();
+}
+
+bool Renderer::BufferWrite::Finish()
+{
+    if (!owner)
+        return false;
+    DX8_THREAD_ASSERT();
+    DX8_Assert();
+    data = nullptr;
+    const bool result = finish(owner);
+    REF_PTR_RELEASE(owner);
+    return result;
+}
+
 void Renderer::Set_Transform(RenderTransform transform, const Matrix4x4 & m)
 {
     DX8Wrapper::Set_Transform(To_D3D_Transform(transform), m);
@@ -375,4 +718,20 @@ void Renderer::Clear_Light(unsigned index)
 void Renderer::Set_Fog(bool enable, const Vector3 & color, float start, float end)
 {
     DX8Wrapper::Set_Fog(enable, color, start, end);
+}
+
+
+bool Renderer::Filter_Terrain_Texture_Mips(const TextureClass & texture, unsigned reduction)
+{
+    DX8_THREAD_ASSERT();
+    auto *native = texture.Peek_D3D_Texture();
+    if (!native) return false;
+    const HRESULT result = D3DXFilterTexture(native, nullptr, 0, D3DX_FILTER_BOX);
+    if (FAILED(result))
+    {
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+        return false;
+    }
+    if (reduction) native->SetLOD(reduction);
+    return true;
 }

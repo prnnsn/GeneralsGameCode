@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 
 #include "WW3D2/ww3dformat.h"
 
@@ -38,6 +39,16 @@ struct MipLayout
     std::uint32_t row_count;
 };
 
+struct SurfaceWriteView
+{
+    unsigned char * data = nullptr;
+    MipLayout layout = {};
+    std::uint32_t pitch = 0;
+    std::uint32_t byte_count = 0;
+    unsigned pixel_bytes = 0;
+    WW3DFormat format = WW3D_FORMAT_UNKNOWN;
+};
+
 struct PackedMip
 {
     MipLayout layout;
@@ -46,6 +57,20 @@ struct PackedMip
 
 // A 32-bit texture dimension permits at most 32 mip levels.
 using PackedMipChain = std::array<PackedMip, 32>;
+
+// Owns the selected mips between file I/O and the render-thread copy.
+// Offsets are relative to the first byte read, with no native surfaces retained.
+struct PackedDDSData
+{
+    std::unique_ptr<unsigned char[]> bytes;
+    PackedMipChain mips = {};
+    unsigned byte_count = 0;
+    unsigned mip_count = 0;
+
+    bool CanCopyTo(unsigned char * const * surfaces, const unsigned * pitches) const;
+    // The same surfaces and pitches must have passed CanCopyTo and remain locked.
+    void CopyTo(unsigned char * const * surfaces, const unsigned * pitches) const;
+};
 
 // Layout describes CPU data. Native dimensions and capabilities are validated
 // by the allocation path. All output parameters retain their value on failure.
@@ -61,4 +86,12 @@ bool TryPackedDDSMips(const Texture2DDesc & desc, std::uint32_t payload_bytes,
 // rows. Trailing padding after the last row is optional.
 bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch,
                 std::uint32_t available_bytes, std::uint32_t & out);
+
+// Clear each row's useful bytes only. Invalid spans leave the destination untouched.
+bool TryClearRows(const MipLayout & layout, unsigned char * data,
+                  std::uint32_t row_pitch, std::uint32_t available_bytes);
+
+// Endpoints are inclusive. Invalid rectangles leave the destination untouched.
+bool TryFillPixelRect(const SurfaceWriteView & view, unsigned left, unsigned top,
+                      unsigned right, unsigned bottom, std::uint32_t value);
 }

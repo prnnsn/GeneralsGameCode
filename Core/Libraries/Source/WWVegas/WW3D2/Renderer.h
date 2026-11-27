@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "WW3D2/ww3dformat.h"
+#include "WW3D2/RenderTexture.h"
 
 // Forward declarations keep this header includable without pulling in the full
 // WW3D2 header graph. All W3D classes below are passed by pointer or reference.
@@ -35,11 +35,24 @@ class Matrix4x4;
 class Vector3;
 class ShaderClass;
 class TextureBaseClass;
+class TextureClass;
+class SurfaceClass;
 class VertexMaterialClass;
 class VertexBufferClass;
 class IndexBufferClass;
 class DynamicVBAccessClass;
 class DynamicIBAccessClass;
+class RefCountClass;
+namespace RenderBuffers { struct BufferDesc; }
+
+// A backend texture reference. Mapping borrows it, while creation returns one
+// reference that the caller must publish or release.
+struct RenderTexture2DHandle
+{
+    void * value = nullptr;
+
+    explicit operator bool() const { return value != nullptr; }
+};
 
 struct RenderViewport
 {
@@ -96,6 +109,54 @@ public:
     // Buffer allocation/binding and texture sampler policy remain separate.
     static void Set_Shader(const ShaderClass & shader);
     static void Set_Texture(unsigned stage, TextureBaseClass * texture);
+
+    // An ordinary sampled texture for the loader. Zero mip levels requests the
+    // full chain, preserving the W3D loader's convention.
+    static RenderTexture2DHandle Create_Load_Texture_2D(unsigned width, unsigned height,
+                                                        WW3DFormat format, unsigned mip_levels);
+    static void Release_Texture_2D(RenderTexture2DHandle & texture);
+    // The target retains its reference and this consumes the loader's reference.
+    static void Apply_Load_Texture_2D(TextureBaseClass & target, RenderTexture2DHandle & texture,
+                                      bool initialize);
+
+    // Map all levels or release any partial mapping and return zero.
+    // Both arrays must have capacity entries. Call Unmap on the render thread
+    // with the successful count before releasing or publishing the resource.
+    static unsigned Map_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                        unsigned * pitch, unsigned capacity);
+    static bool Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                      unsigned * pitch, unsigned mip_count);
+
+    // The caller owns one SurfaceClass reference. Use the usual Release_Ref.
+    static SurfaceClass * Get_Texture_2D_Mip_Surface(const TextureClass & texture, unsigned mip);
+    // On failure the output arguments keep their previous values.
+    static bool Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigned mip,
+                                            unsigned & width, unsigned & height, WW3DFormat & format);
+
+    // Owns a checked write mapping of a single uncompressed mip.
+    class TextureMipWrite
+    {
+    public:
+        TextureMipWrite() = default;
+        ~TextureMipWrite();
+
+        TextureMipWrite(const TextureMipWrite &) = delete;
+        TextureMipWrite & operator=(const TextureMipWrite &) = delete;
+
+        bool Try_Begin(const TextureClass & texture, unsigned mip = 0);
+        const RenderTextures::SurfaceWriteView & View() const { return view; }
+        bool Finish();
+
+    private:
+        void * native_surface = nullptr;
+        RenderTextures::SurfaceWriteView view;
+    };
+
+    // Zero the active bytes of an uncompressed mip while preserving row padding.
+    // Preserve the DX8 box filter and optional legacy LOD update.
+    static bool Filter_Terrain_Texture_Mips(const TextureClass & texture, unsigned reduction);
+    static bool Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip = 0);
+
     // Set addressing and border colour for one sampler. Colour is packed ARGB.
     enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
     static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
@@ -127,6 +188,35 @@ public:
     static void Set_Index_Buffer(const IndexBufferClass * ib, unsigned short index_base_offset);
     static void Set_Index_Buffer(const DynamicIBAccessClass & iba, unsigned short index_base_offset);
     static void Set_Index_Buffer_Index_Offset(unsigned offset);
+
+    // The returned W3D object owns one reference. Use the usual Release_Ref.
+    static VertexBufferClass * Create_Rewritable_Vertex_Buffer(const RenderBuffers::BufferDesc & desc);
+    static IndexBufferClass * Create_Rewritable_Index_Buffer(const RenderBuffers::BufferDesc & desc);
+    static bool Upload_Dynamic_Vertices(DynamicVBAccessClass & access, const void * source, unsigned stride);
+    static bool Upload_Dynamic_Indices(DynamicIBAccessClass & access, const unsigned short * source);
+    // Bind the validated span after both uploads have succeeded.
+    static bool Bind_Dynamic_Triangle_List(const DynamicVBAccessClass & vertices,
+                                           const DynamicIBAccessClass & indices);
+
+    class BufferWrite
+    {
+    public:
+        BufferWrite(VertexBufferClass * buffer, unsigned first, unsigned count);
+        BufferWrite(IndexBufferClass * buffer, unsigned first, unsigned count);
+        ~BufferWrite();
+
+        BufferWrite(const BufferWrite &) = delete;
+        BufferWrite & operator=(const BufferWrite &) = delete;
+
+        void * Data() const { return data; }
+        // Call Finish before publishing the data. The destructor cleans up an unfinished map.
+        bool Finish();
+
+    private:
+        RefCountClass * owner = nullptr;
+        void * data = nullptr;
+        bool (*finish)(RefCountClass *) = nullptr;
+    };
 
     static void Set_Transform(RenderTransform transform, const Matrix4x4 & m);
     static void Set_Transform(RenderTransform transform, const Matrix3D & m);

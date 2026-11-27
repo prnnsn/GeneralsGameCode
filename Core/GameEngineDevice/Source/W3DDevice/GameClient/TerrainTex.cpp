@@ -52,6 +52,8 @@
 #include "W3DDevice/GameClient/TileData.h"
 #include "Common/GlobalData.h"
 #include "WW3D2/dx8wrapper.h"
+#include "WW3D2/Renderer.h"
+#include "WW3D2/TerrainAtlasWrite.h"
 #include "d3dx8tex.h"
 
 /******************************************************************************
@@ -95,112 +97,58 @@ TerrainTextureClass::TerrainTextureClass(int height, int width) :
 //=============================================================================
 int TerrainTextureClass::update(WorldHeightMap *htMap)
 {
-	// D3DTexture is our texture;
+    Renderer::TextureMipWrite write;
+    if (!htMap || !write.Try_Begin(*this))
+        return 0;
 
-	IDirect3DSurface8 *surface_level;
-	D3DSURFACE_DESC surface_desc;
-	D3DLOCKED_RECT locked_rect;
-	DX8_ErrorCode(Peek_D3D_Texture()->GetSurfaceLevel(0, &surface_level));
-	DX8_ErrorCode(surface_level->GetDesc(&surface_desc));
-	if (surface_desc.Width < TEXTURE_WIDTH) {
-		surface_level->Release();
-		return 0;
-	}
+    const auto &view = write.View();
+    const unsigned width = view.layout.width;
+    const unsigned height = view.layout.height;
+    if (width < TEXTURE_WIDTH || view.format != WW3D_FORMAT_A1R5G5B5 ||
+        view.pixel_bytes != 2 || !TerrainAtlas::ValidView(view.data,width,height,view.pitch,view.byte_count))
+        return 0;
 
-	DX8_ErrorCode(surface_level->LockRect(&locked_rect, nullptr, 0));
-
-	Int tilePixelExtent = TILE_PIXEL_EXTENT;
-	Int tilesPerRow = surface_desc.Width/(2*TILE_PIXEL_EXTENT+TILE_OFFSET);
-	tilesPerRow *= 2;
-//	Int numRows = surface_desc.Height/(tilePixelExtent+TILE_OFFSET);
-#ifdef RTS_DEBUG
-	//DEBUG_ASSERTCRASH(tilesPerRow*numRows >= htMap->m_numBitmapTiles, ("Too many tiles."));
-	DEBUG_ASSERTCRASH((Int)surface_desc.Width >= tilePixelExtent*tilesPerRow, ("Bitmap too small."));
-#endif
-	if (surface_desc.Format == D3DFMT_A1R5G5B5) {
-#if 0
-		UnsignedInt cellX, cellY;
-		for (cellX = 0; cellX < surface_desc.Width; cellX++) {
-			for (cellY = 0; cellY < surface_desc.Height; cellY++) {
-				UnsignedByte *pBGR = ((UnsignedByte *)locked_rect.pBits)+(cellY*surface_desc.Width+cellX)*2;
-				*((Short*)pBGR) = (((255-2*cellY)>>3)<<10) + ((4*cellX)>>4);
-			}
-		}
-#endif
-		Int tileNdx;
-		Int pixelBytes = 2;
-		for (tileNdx=0; tileNdx < htMap->m_numBitmapTiles; tileNdx++) {
-			TileData *pTile = htMap->getSourceTile(tileNdx);
-			if (!pTile) continue;
-			ICoord2D position = pTile->m_tileLocationInTexture;
-			if (position.x<=0) continue; // all real tile offsets start at 2.  jba.
-
-			Int i,j;
-			for (j=0; j<tilePixelExtent; j++) {
-				UnsignedByte *pBGR = pTile->getRGBDataForWidth(tilePixelExtent);
-				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
-				Int row = position.y+j;
-				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
-							(row)*surface_desc.Width*pixelBytes;
-
-				Int column = position.x;
-				pBGRX += column*pixelBytes;
-				for (i=0; i<tilePixelExtent; i++) {
-					*((Short*)pBGRX) = 0x8000 + ((pBGR[2]>>3)<<10) + ((pBGR[1]>>3)<<5) + (pBGR[0]>>3);
-					pBGRX +=pixelBytes;
-					pBGR +=TILE_BYTES_PER_PIXEL;
-				}
-			}
-		}
-		// Now draw the 4 pixel border around each tile class.
-		Int texClass;
-		for (texClass=0; texClass<htMap->m_numTextureClasses; texClass++) {
-			Int width = htMap->m_textureClasses[texClass].width;
-			ICoord2D origin = htMap->m_textureClasses[texClass].positionInTexture;
-			if (origin.x<=0) continue;
-			width *= TILE_PIXEL_EXTENT;
-			// Duplicate 4 columns of pixels before and after.
-			Int j;
-			for (j=0; j<width; j++) {
-				Int row = origin.y+j;
-				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
-							(row)*surface_desc.Width*pixelBytes;
-
-				Int column = origin.x;
-				pBGRX += column*pixelBytes;
-				// copy before
-				memcpy(pBGRX-(4)*pixelBytes, pBGRX+(width-4)*pixelBytes, 4*pixelBytes);
-				// copy after
-				memcpy(pBGRX+(width*pixelBytes), pBGRX, 4*pixelBytes);
-			}
-
-			// Duplicate 4 rows of pixels before and after.
-			for (j=0; j<4; j++) {
-				// copy before.
-				Int row = origin.y-j-1;
-				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
-							(row)*surface_desc.Width*pixelBytes;
-				UnsignedByte *target = pBGRX+(origin.x-4)*pixelBytes;
-				memcpy(target, target+width*surface_desc.Width*pixelBytes, (width+8)*pixelBytes);
-				// copy after.
-				row = origin.y+j;
-				pBGRX = ((UnsignedByte*)locked_rect.pBits) +
-							(row)*surface_desc.Width*pixelBytes;
-				target = pBGRX+(origin.x-4)*pixelBytes;
-				memcpy(target+width*surface_desc.Width*pixelBytes, target, (width+8)*pixelBytes);
-			}
-
-		}
-
-	}
-	surface_level->UnlockRect();
-	surface_level->Release();
-	DX8_ErrorCode(D3DXFilterTexture(Peek_D3D_Texture(), nullptr, 0, D3DX_FILTER_BOX));
-	if (WW3D::Get_Texture_Reduction()) {
-		Peek_D3D_Texture()->SetLOD(WW3D::Get_Texture_Reduction());
-	}
-	return(surface_desc.Height);
+    // Validate all tile and wrapped class rectangles before the first write.
+    for (Int i=0; i<htMap->m_numBitmapTiles; ++i)
+    {
+        TileData *tile = htMap->getSourceTile(i);
+        if (!tile || tile->m_tileLocationInTexture.x <= 0) continue;
+        const auto &pos = tile->m_tileLocationInTexture;
+        if (!TerrainAtlas::Fits(width,height,pos.x,pos.y,TILE_PIXEL_EXTENT,0))
+            return 0;
+    }
+    for (Int i=0; i<htMap->m_numTextureClasses; ++i)
+    {
+        const auto &cls = htMap->m_textureClasses[i];
+        if (cls.positionInTexture.x <= 0) continue;
+        if (cls.width <= 0 || !TerrainAtlas::Fits(width,height,cls.positionInTexture.x,
+            cls.positionInTexture.y,std::uint64_t(cls.width)*TILE_PIXEL_EXTENT,4))
+            return 0;
+    }
+    for (Int i=0; i<htMap->m_numBitmapTiles; ++i)
+    {
+        TileData *tile = htMap->getSourceTile(i);
+        if (!tile || tile->m_tileLocationInTexture.x <= 0) continue;
+        const auto &pos = tile->m_tileLocationInTexture;
+        if (!TerrainAtlas::WriteTile(view.data,width,height,view.pitch,view.byte_count,pos.x,pos.y,
+            TILE_PIXEL_EXTENT,tile->getRGBDataForWidth(TILE_PIXEL_EXTENT),DATA_LEN_BYTES))
+            return 0;
+    }
+    for (Int i=0; i<htMap->m_numTextureClasses; ++i)
+    {
+        const auto &cls = htMap->m_textureClasses[i];
+        if (cls.positionInTexture.x <= 0) continue;
+        if (!TerrainAtlas::WrapBorder(view.data,width,height,view.pitch,view.byte_count,
+            cls.positionInTexture.x,cls.positionInTexture.y,unsigned(cls.width)*TILE_PIXEL_EXTENT))
+            return 0;
+    }
+    if (!write.Finish())
+        return 0;
+    if (!Renderer::Filter_Terrain_Texture_Mips(*this, WW3D::Get_Texture_Reduction()))
+        return 0;
+    return height;
 }
+
 
 #if 0 // old version.
 //=============================================================================
