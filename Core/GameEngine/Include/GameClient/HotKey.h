@@ -92,7 +92,7 @@ public:
 	virtual void reset() override;															///< Reset
 	//-----------------------------------------------------------------------------------------------
 
-	void addHotKey( GameWindow *win, const AsciiString& key);
+	Bool addHotKey( GameWindow *win, const AsciiString& key);
 	Bool executeHotKey( const AsciiString& key); // called front eh HotKeyTranslator
 
 	AsciiString searchHotKey( const AsciiString& label);

@@ -141,7 +141,7 @@ void HotKeyManager::reset()
 }
 
 //-----------------------------------------------------------------------------
-void HotKeyManager::addHotKey( GameWindow *win, const AsciiString& keyIn)
+Bool HotKeyManager::addHotKey( GameWindow *win, const AsciiString& keyIn)
 {
 	AsciiString key = keyIn;
 	key.toLower();
@@ -149,12 +149,13 @@ void HotKeyManager::addHotKey( GameWindow *win, const AsciiString& keyIn)
 	if( it != m_hotKeyMap.end() )
 	{
 		DEBUG_CRASH(("Hotkey %s is already mapped to window %s, current window is %s", key.str(), it->second.m_win->winGetInstanceData()->m_decoratedNameString.str(), win->winGetInstanceData()->m_decoratedNameString.str()));
-		return;
+		return FALSE;
 	}
 	HotKey newHK;
 	newHK.m_key.set(key);
 	newHK.m_win = win;
 	m_hotKeyMap[key] = newHK;
+	return TRUE;
 }
 
 //-----------------------------------------------------------------------------

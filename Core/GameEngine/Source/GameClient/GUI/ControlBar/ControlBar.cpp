@@ -1230,7 +1230,7 @@ void ControlBar::init()
 			{
 				m_commandWindows[ i ]->winGetPosition(&commandPos.x, &commandPos.y);
 				m_commandWindows[ i ]->winGetSize(&commandSize.x, &commandSize.y);
-				m_commandWindows[ i ]->winSetStatus( WIN_STATUS_USE_OVERLAY_STATES );
+				m_commandWindows[ i ]->winSetStatus( WIN_STATUS_USE_OVERLAY_STATES | WIN_STATUS_COMMAND_HOTKEY );
 			}
 
 	// removed from multiplayer branch
@@ -2625,12 +2625,20 @@ void ControlBar::setControlCommand( GameWindow *button, const CommandButton *com
 
 	setCommandBarBorder(button, commandButton->getCommandButtonMappedBorderType());
 
-	if (TheHotKeyManager)
+	const Bool showHotKey = BitIsSet( button->winGetStatus(), WIN_STATUS_COMMAND_HOTKEY );
+	UnicodeString hotKeyText;
+	if( TheHotKeyManager )
 	{
-		AsciiString hotKey =	TheHotKeyManager->searchHotKey(commandButton->getTextLabel());
-		if(hotKey.isNotEmpty())
-			TheHotKeyManager->addHotKey(button, hotKey);
+		AsciiString hotKey = TheHotKeyManager->searchHotKey( commandButton->getTextLabel() );
+		if( hotKey.isNotEmpty() && TheHotKeyManager->addHotKey( button, hotKey ) && showHotKey )
+		{
+			hotKey.toUpper();
+			hotKeyText.translate( hotKey );
+		}
 	}
+	if( showHotKey )
+		GadgetButtonSetText( button, hotKeyText );
+
 	GadgetButtonSetAltSound(button, "GUICommandBarClick");
 
 }
