@@ -39,6 +39,16 @@ struct MipLayout
     std::uint32_t row_count;
 };
 
+struct SurfaceWriteView
+{
+    unsigned char * data = nullptr;
+    MipLayout layout = {};
+    std::uint32_t pitch = 0;
+    std::uint32_t byte_count = 0;
+    unsigned pixel_bytes = 0;
+    WW3DFormat format = WW3D_FORMAT_UNKNOWN;
+};
+
 struct PackedMip
 {
     MipLayout layout;
@@ -80,4 +90,8 @@ bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch,
 // Clear each row's useful bytes only. Invalid spans leave the destination untouched.
 bool TryClearRows(const MipLayout & layout, unsigned char * data,
                   std::uint32_t row_pitch, std::uint32_t available_bytes);
+
+// Endpoints are inclusive. Invalid rectangles leave the destination untouched.
+bool TryFillPixelRect(const SurfaceWriteView & view, unsigned left, unsigned top,
+                      unsigned right, unsigned bottom, std::uint32_t value);
 }

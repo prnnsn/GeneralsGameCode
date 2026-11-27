@@ -297,9 +297,17 @@ bool Renderer::Try_Describe_Texture_2D_Mip(const TextureClass & texture, unsigne
     return true;
 }
 
-bool Renderer::Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip)
+Renderer::TextureMipWrite::~TextureMipWrite()
 {
-    const auto surface = Acquire_Native_Mip_Surface(texture, mip);
+    Finish();
+}
+
+bool Renderer::TextureMipWrite::Try_Begin(const TextureClass & texture, unsigned mip)
+{
+    if (native_surface)
+        return false;
+
+    auto surface = Acquire_Native_Mip_Surface(texture, mip);
     if (!surface)
         return false;
 
@@ -327,16 +335,45 @@ bool Renderer::Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip)
         return false;
     }
 
-    const bool cleared = rect.Pitch > 0 &&
-        RenderTextures::TryClearRows(layout, static_cast<unsigned char *>(rect.pBits),
-                                     static_cast<unsigned>(rect.Pitch), INT_MAX);
-    const HRESULT unlock = surface->UnlockRect();
-    if (!cleared || FAILED(unlock))
+    std::uint32_t span;
+    if (!rect.pBits || rect.Pitch <= 0 ||
+        !RenderTextures::TryRowSpan(layout, static_cast<unsigned>(rect.Pitch), INT_MAX, span))
     {
+        const HRESULT unlock = surface->UnlockRect();
         Non_Fatal_Log_DX8_ErrorCode(FAILED(unlock) ? unlock : E_FAIL, __FILE__, __LINE__);
         return false;
     }
+
+    view = { static_cast<unsigned char *>(rect.pBits), layout, static_cast<unsigned>(rect.Pitch),
+             span, storage.bytes_per_block, format };
+    native_surface = surface.release();
     return true;
+}
+
+bool Renderer::TextureMipWrite::Finish()
+{
+    const DX8SurfaceRef surface(static_cast<IDirect3DSurface8 *>(native_surface));
+    native_surface = nullptr;
+    view = {};
+    if (!surface)
+        return true;
+
+    const HRESULT result = surface->UnlockRect();
+    if (FAILED(result))
+        Non_Fatal_Log_DX8_ErrorCode(result, __FILE__, __LINE__);
+    return SUCCEEDED(result);
+}
+
+bool Renderer::Clear_Texture_2D_Mip(const TextureClass & texture, unsigned mip)
+{
+    TextureMipWrite write;
+    if (!write.Try_Begin(texture, mip))
+        return false;
+
+    const auto & mapped = write.View();
+    const bool cleared = RenderTextures::TryClearRows(
+        mapped.layout, mapped.data, mapped.pitch, mapped.byte_count);
+    return write.Finish() && cleared;
 }
 
 static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)
