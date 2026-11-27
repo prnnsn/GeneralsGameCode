@@ -160,6 +160,8 @@ set(WW3D2_SRC
     render2dsentence.h
     RenderBuffer.h
     Renderer.h
+    RenderTexture.cpp
+    RenderTexture.h
     renderobjectrecycler.cpp
     renderobjectrecycler.h
     rendobj.cpp
