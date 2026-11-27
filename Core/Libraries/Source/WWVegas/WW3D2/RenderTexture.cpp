@@ -2,8 +2,52 @@
 
 #include "WW3D2/RenderTexture.h"
 
+#include <cassert>
+#include <climits>
+#include <cstring>
+
 namespace RenderTextures
 {
+bool PackedDDSData::CanCopyTo(unsigned char * const * surfaces, const unsigned * pitches) const
+{
+    if (!bytes || !mip_count || mip_count > mips.size())
+        return false;
+
+    for (unsigned level = 0; level < mip_count; ++level)
+    {
+        const auto & mip = mips[level];
+        std::uint32_t span;
+        if (!surfaces[level] || pitches[level] > INT_MAX ||
+            !TryRowSpan(mip.layout, pitches[level], INT_MAX, span) ||
+            mip.offset > byte_count ||
+            !TryRowSpan(mip.layout, mip.layout.row_bytes, byte_count - mip.offset, span))
+            return false;
+    }
+    return true;
+}
+
+void PackedDDSData::CopyTo(unsigned char * const * surfaces, const unsigned * pitches) const
+{
+    assert(CanCopyTo(surfaces, pitches));
+
+    for (unsigned level = 0; level < mip_count; ++level)
+    {
+        const auto & mip = mips[level];
+        const auto * source = bytes.get() + mip.offset;
+        auto * dest = surfaces[level];
+        const unsigned pitch = pitches[level];
+        if (pitch == mip.layout.row_bytes)
+        {
+            std::memcpy(dest, source, mip.layout.row_count * mip.layout.row_bytes);
+            continue;
+        }
+
+        for (unsigned row = 0; row < mip.layout.row_count; ++row)
+            std::memcpy(dest + row * pitch, source + row * mip.layout.row_bytes,
+                        mip.layout.row_bytes);
+    }
+}
+
 bool TryFormatLayout(WW3DFormat format, FormatLayout & out)
 {
     switch (format)

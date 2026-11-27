@@ -127,6 +127,48 @@ TEST(RenderTexture, PackedDdsRequiresExactlyTheStoredChain)
     EXPECT_EQ(87360u, chain[6].offset);
 }
 
+TEST(RenderTexture, StagedDdsValidatesAllMipsAndCopiesOnlyTheirBlockRows)
+{
+    PackedDDSData data;
+    data.mips[0] = { { 4, 8, 8, 2 }, 0 };
+    data.mips[1] = { { 2, 4, 8, 1 }, 16 };
+    data.byte_count = 24;
+    data.mip_count = 2;
+    data.bytes = std::make_unique<unsigned char[]>(data.byte_count);
+    for (unsigned i = 0; i < data.byte_count; ++i)
+        data.bytes[i] = static_cast<unsigned char>(i + 1);
+
+    std::array<unsigned char, 24> main_surface;
+    std::array<unsigned char, 8> small_surface;
+    main_surface.fill(0xcd);
+    small_surface.fill(0xcd);
+    const auto original_main = main_surface;
+    const auto original_small = small_surface;
+    unsigned char * surfaces[] = { main_surface.data(), small_surface.data() };
+    unsigned pitches[] = { 12, 7 };
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    pitches[1] = 8;
+    --data.byte_count;
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    ++data.byte_count;
+    surfaces[1] = nullptr;
+    EXPECT_FALSE(data.CanCopyTo(surfaces, pitches));
+    surfaces[1] = small_surface.data();
+
+    EXPECT_EQ(original_main, main_surface);
+    EXPECT_EQ(original_small, small_surface);
+
+    ASSERT_TRUE(data.CanCopyTo(surfaces, pitches));
+    data.CopyTo(surfaces, pitches);
+    const std::array<unsigned char, 24> expected_main = {
+        1, 2, 3, 4, 5, 6, 7, 8, 0xcd, 0xcd, 0xcd, 0xcd,
+        9, 10, 11, 12, 13, 14, 15, 16, 0xcd, 0xcd, 0xcd, 0xcd
+    };
+    const std::array<unsigned char, 8> expected_small = { 17, 18, 19, 20, 21, 22, 23, 24 };
+    EXPECT_EQ(expected_main, main_surface);
+    EXPECT_EQ(expected_small, small_surface);
+}
+
 TEST(RenderTexture, PaddedRowsUseOnlyRequiredBytes)
 {
     MipLayout mip = {};

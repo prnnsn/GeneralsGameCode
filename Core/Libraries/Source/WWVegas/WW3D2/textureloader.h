@@ -37,6 +37,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "WWLib/always.h"
 #include "texture.h"
 
@@ -44,6 +46,7 @@ class StringClass;
 struct IDirect3DTexture8;
 class TextureLoadTaskClass;
 class TextureLoadTaskListClass;
+namespace RenderTextures { struct PackedDDSData; }
 
 class TextureLoader
 {
@@ -263,6 +266,10 @@ class TextureLoadTaskClass : public TextureLoadTaskListNodeClass
 		TaskType					Type;
 		PriorityType			Priority;
 		StateType				State;
+
+	private:
+		void Release_Packed_DDS();
+		std::unique_ptr<RenderTextures::PackedDDSData> PackedDDS;
 };
 
 class CubeTextureLoadTaskClass : public TextureLoadTaskClass
