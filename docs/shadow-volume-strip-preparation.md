@@ -27,6 +27,16 @@ Build a Win32 Release profile as described in [GFX 11b](render-quad-depth-worker
 
 Use the count and total time of `RebuildVisibleMesh` zones per frame to judge how often cached shadows need work. Compare its busiest frames with the whole pass. The silhouette and construction zones are nested inside rebuilds, and `PrepareStaticStrips` is nested inside static construction. A frame can display cached shadows without recording any rebuilds. These timings measure CPU elapsed time and may include driver waits.
 
+## Profile shadow pass requests (GFX 09b.1)
+
+`Core/GameEngineDevice/Include/W3DDevice/GameClient/W3DShadowPassProfile.h` adds shared Tracy counters to both `W3DVolumetricShadow.cpp` variants. This builds on GFX 12b to measure the draw, state, binding and dynamic buffer activity in the rest of the shadow pass. The patch preserves the original D3D8 call order, geometry, stencil operations and game formats.
+
+With Tracy connected, each invocation publishes nine `ShadowPass/` samples after `RenderShadows` ends. Draw requests include indexed shadow geometry and the two-triangle stencil overlay when submitted. State and binding counts cover the instrumented calls. The dynamic buffer plots count requests by lock flag, failures, and requested bytes of successful locks. Use these measurements as CPU-side workload counts. GPU completion and bandwidth require GPU measurements.
+
+For the default capture, connect Tracy 0.13.1 and record a normal-speed replay with volume shadows and a fixed camera over buildings and moving units. Check that the `ShadowPass/` plots update as casters enter view. Set `GENERALS_PROFILE_SHADOW_CALLS=1` before launching again to add the `ShadowPass::DrawCall`, `ShadowPass::DynamicBufferLock` and `ShadowPass::DynamicBufferUnlock` timing zones. Capture a short interval in this mode. Compare CPU times between captures taken with the same instrumentation and replay conditions.
+
+Clear `GENERALS_PROFILE_SHADOW_CALLS` and restart to return to the per-pass counters. Build with `RTS_BUILD_OPTION_PROFILE_TRACY=OFF` to remove the instrumentation, or restore the previous executable for a full rollback.
+
 ## Roll back
 
 Restore the previous executable, or revert the GFX 12a commit and rebuild.

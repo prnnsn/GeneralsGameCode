@@ -22,6 +22,7 @@
 
 #ifdef PROFILER_ENABLED
 #include <cstdint>
+#include <cstdlib>
 #include "WW3D2/dx8wrapper.h"
 
 namespace ShadowPassProfile
@@ -31,6 +32,7 @@ struct Counters
     std::int64_t drawCalls = 0, triangles = 0, stateRequests = 0, bindingRequests = 0;
     std::int64_t lockCalls = 0, lockFailures = 0, discardLocks = 0, noOverwriteLocks = 0;
     std::int64_t lockedBytes = 0;
+    bool callZones = false;
 };
 
 // The volume-shadow pass is synchronous on the render thread. Keep each
@@ -40,10 +42,26 @@ struct Scope
 {
     Counters counts;
     Counters *previous = active;
-    Scope() { active = &counts; }
+    const bool collecting = PROFILER_IS_CONNECTED;
+
+    Scope()
+    {
+        active = collecting ? &counts : nullptr;
+        if (collecting)
+        {
+            static const bool enableCallZones = [] {
+                const char *value = std::getenv("GENERALS_PROFILE_SHADOW_CALLS");
+                return value && value[0] == '1' && value[1] == '\0';
+            }();
+            counts.callZones = enableCallZones;
+        }
+    }
     ~Scope()
     {
         active = previous;
+        if (!collecting)
+            return;
+
         PROFILER_PLOT("ShadowPass/Draw requests", counts.drawCalls);
         PROFILER_PLOT("ShadowPass/Requested triangles", counts.triangles);
         PROFILER_PLOT("ShadowPass/State requests", counts.stateRequests);
@@ -64,7 +82,7 @@ inline void bindingRequest() { if (active) ++active->bindingRequests; }
 template<class F>
 auto draw(unsigned triangles, F &&call)
 {
-    PROFILER_SECTION_NAME("ShadowPass::DrawCall");
+    ZoneNamedN(callZone, "ShadowPass::DrawCall", active && active->callZones);
     if (active)
     {
         ++active->drawCalls;
@@ -76,7 +94,7 @@ auto draw(unsigned triangles, F &&call)
 template<class B, class P>
 auto lock(B *buffer, unsigned offset, unsigned bytes, P data, unsigned flags)
 {
-    PROFILER_SECTION_NAME("ShadowPass::DynamicBufferLock");
+    ZoneNamedN(callZone, "ShadowPass::DynamicBufferLock", active && active->callZones);
     if (active)
     {
         ++active->lockCalls;
@@ -97,7 +115,7 @@ auto lock(B *buffer, unsigned offset, unsigned bytes, P data, unsigned flags)
 template<class B>
 auto unlock(B *buffer)
 {
-    PROFILER_SECTION_NAME("ShadowPass::DynamicBufferUnlock");
+    ZoneNamedN(callZone, "ShadowPass::DynamicBufferUnlock", active && active->callZones);
     return buffer->Unlock();
 }
 }
@@ -105,6 +123,7 @@ auto unlock(B *buffer)
 #define SHADOW_PASS_SCOPE() ShadowPassProfile::Scope shadowPassProfileScope
 #define SHADOW_PASS_STATE(call) (ShadowPassProfile::stateRequest(), (call))
 #define SHADOW_PASS_BIND(call) (ShadowPassProfile::bindingRequest(), (call))
+// The triangle count is a side-effect-free value from the draw call.
 #define SHADOW_PASS_DRAW(tris, call) ShadowPassProfile::draw(tris, [&] { return (call); })
 #define SHADOW_PASS_LOCK(buffer, offset, bytes, data, flags) ShadowPassProfile::lock(buffer, offset, bytes, data, flags)
 #define SHADOW_PASS_UNLOCK(buffer) ShadowPassProfile::unlock(buffer)

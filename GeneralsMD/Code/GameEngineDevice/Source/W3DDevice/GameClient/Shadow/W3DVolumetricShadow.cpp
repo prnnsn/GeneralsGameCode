@@ -3380,8 +3380,9 @@ void W3DVolumetricShadowManager::renderStencilShadows()
 
 void W3DVolumetricShadowManager::renderShadows( Bool forceStencilFill )
 {
-	PROFILER_SECTION_NAME("W3DVolumetricShadowManager::RenderShadows");
+	// Publish the pass counters after the render timing zone ends.
 	SHADOW_PASS_SCOPE();
+	PROFILER_SECTION_NAME("W3DVolumetricShadowManager::RenderShadows");
 
 	W3DVolumetricShadow *shadow;
 	Int numRenderedShadows = 0;
