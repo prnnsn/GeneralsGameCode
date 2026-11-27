@@ -189,6 +189,10 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	m_xferContainedByID(INVALID_ID),
 	m_containedByFrame(0),
 	m_behaviors(nullptr),
+	m_collisionBehaviorMask(0),
+	m_upgradeBehaviorMask(0),
+	m_specialPowerBehaviorMask(0),
+	m_behaviorIndexesReady(false),
 	m_body(nullptr),
 	m_contain(nullptr),
   m_stealth(nullptr),
@@ -488,6 +492,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 
 	//Modules have now been completely created!
 	m_modulesReady = true;
+	buildBehaviorIndexes();
 
 	TheRadar->addObject( this );
 
@@ -598,6 +603,7 @@ void Object::initObject()
 //-------------------------------------------------------------------------------------------------
 Object::~Object()
 {
+	m_behaviorIndexesReady = false;
 
 	// tell the AI the building is gone
 	/// @todo Generalize the notion of objects entering and leaving the world, so we don't have to special case this
@@ -2442,6 +2448,41 @@ void Object::checkDisabledStatus()
 }
 
 //-------------------------------------------------------------------------------------------------
+void Object::buildBehaviorIndexes()
+{
+	m_collisionBehaviorMask = m_upgradeBehaviorMask = m_specialPowerBehaviorMask = 0;
+	m_behaviorIndexesReady = false;
+	for (Int i = 0; m_behaviors[i]; ++i)
+	{
+		if (i >= 32)
+			return;
+		BehaviorModule* module = m_behaviors[i];
+		const UnsignedInt bit = 1u << i;
+		if (module->getCollide()) m_collisionBehaviorMask |= bit;
+		if (module->getUpgrade()) m_upgradeBehaviorMask |= bit;
+		if (module->getSpecialPower()) m_specialPowerBehaviorMask |= bit;
+	}
+	m_behaviorIndexesReady = true;
+}
+
+BehaviorModule** Object::nextIndexedBehavior(BehaviorModule** start, UnsignedInt mask) const
+{
+	if (!m_behaviorIndexesReady)
+		return start;
+	const Int index = static_cast<Int>(start - m_behaviors);
+	if (index >= 32)
+		return nullptr;
+	UnsignedInt remaining = mask >> index;
+	if (!remaining)
+		return nullptr;
+	while (!(remaining & 1u))
+	{
+		++start;
+		remaining >>= 1;
+	}
+	return start;
+}
+
 void Object::pauseAllSpecialPowers( const Bool disabling ) const
 {
 	for (BehaviorModule** m = m_behaviors; *m; ++m)
