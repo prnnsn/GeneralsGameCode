@@ -37,6 +37,7 @@
 #include "Common/BitFlags.h"
 #include "Common/Overridable.h"
 #include "Common/Override.h"
+#include <map>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class ObjectCreationList;
@@ -180,6 +181,10 @@ protected:
 
 	typedef std::vector<SpecialPowerTemplate *> SpecialPowerTemplatePtrVector;
 	SpecialPowerTemplatePtrVector m_specialPowerTemplates;			///< the special power templates
+
+	// Derived lookup only; the vector retains ownership and enumeration order.
+	typedef std::map<AsciiString, SpecialPowerTemplate*> SpecialPowerNameMap;
+	SpecialPowerNameMap m_specialPowerByName;
 
 	UnsignedInt m_nextSpecialPowerID;
 
