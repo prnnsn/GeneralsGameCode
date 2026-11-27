@@ -711,6 +711,7 @@ private:
 	std::vector<AsciiString>						m_buildVariations;	/**< if we build a unit of this type via script or ui, randomly choose one
 																														of these templates instead. (doesn't apply to MapObject-created items) */
 	WeaponTemplateSetVector							m_weaponTemplateSets;					///< our weaponsets
+	Bool m_hasAnyWeaponTemplate;	///< derived from m_weaponTemplateSets
 	WeaponTemplateSetFinder							m_weaponTemplateSetFinder;		///< helper to allow us to find the best sets, quickly
 	ArmorTemplateSetVector							m_armorTemplateSets;	///< our armorsets
 	ArmorTemplateSetFinder							m_armorTemplateSetFinder;		///< helper to allow us to find the best sets, quickly

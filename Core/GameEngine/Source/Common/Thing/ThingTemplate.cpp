@@ -956,6 +956,7 @@ void ThingTemplate::parseWeaponTemplateSet( INI* ini, void *instance, void * /*s
 	{
 		self->m_weaponsCopiedFromDefault = FALSE;
 		self->m_weaponTemplateSets.clear();
+		self->m_hasAnyWeaponTemplate = false;
 	}
 
 	WeaponTemplateSet ws;
@@ -973,6 +974,7 @@ void ThingTemplate::parseWeaponTemplateSet( INI* ini, void *instance, void * /*s
 	}
 #endif
 	self->m_weaponTemplateSets.push_back(ws);
+	self->m_hasAnyWeaponTemplate = self->m_hasAnyWeaponTemplate || ws.hasAnyWeapons();
 	self->m_weaponTemplateSetFinder.clear();
 }
 
@@ -1013,6 +1015,7 @@ void ThingTemplate::parseMaxSimultaneous(INI *ini, void *instance, void *store, 
 ThingTemplate::ThingTemplate() :
 	m_geometryInfo(GEOMETRY_SPHERE, FALSE, 1, 1, 1)
 {
+	m_hasAnyWeaponTemplate = false;
 	m_moduleParsingMode = MODULEPARSE_NORMAL;
 	m_reskinnedFrom = nullptr;
 	m_radarPriority = RADAR_PRIORITY_INVALID;
@@ -1409,14 +1412,7 @@ const WeaponTemplateSet* ThingTemplate::findWeaponTemplateSet(const WeaponSetFla
 // returns false if we have no weaponsets, or they are all empty.
 Bool ThingTemplate::canPossiblyHaveAnyWeapon() const
 {
-	for (WeaponTemplateSetVector::const_iterator it = m_weaponTemplateSets.begin();
-					it != m_weaponTemplateSets.end();
-					++it)
-	{
-		if (it->hasAnyWeapons())
-			return true;
-	}
-	return false;
+	return m_hasAnyWeaponTemplate;
 }
 
 //-----------------------------------------------------------------------------
