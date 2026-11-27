@@ -166,6 +166,7 @@ set(WW3D2_SRC
     Renderer.h
     RenderTexture.cpp
     RenderTexture.h
+    RenderTextureSubresources.h
     renderobjectrecycler.cpp
     renderobjectrecycler.h
     rendobj.cpp
