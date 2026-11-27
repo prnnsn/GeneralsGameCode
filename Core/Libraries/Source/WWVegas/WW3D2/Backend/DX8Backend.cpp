@@ -718,3 +718,25 @@ void Renderer::Set_Fog(bool enable, const Vector3 & color, float start, float en
 {
     DX8Wrapper::Set_Fog(enable, color, start, end);
 }
+
+
+void Renderer::Draw_Triangles(DrawRoute route, unsigned short start_index, unsigned short polygon_count,
+                              unsigned short min_vertex_index, unsigned short vertex_count)
+{
+    unsigned type;
+    switch (route)
+    {
+    case DrawRoute::Gpu: type = BUFFER_TYPE_DX8; break;
+    case DrawRoute::CpuSorting: type = BUFFER_TYPE_SORTING; break;
+    case DrawRoute::DynamicGpu: type = BUFFER_TYPE_DYNAMIC_DX8; break;
+    case DrawRoute::DynamicCpuSorting: type = BUFFER_TYPE_DYNAMIC_SORTING; break;
+    default: WWASSERT(0); return;
+    }
+    DX8Wrapper::Draw_Triangles(type,start_index,polygon_count,min_vertex_index,vertex_count);
+}
+
+void Renderer::Draw_Strip(unsigned short start_index, unsigned short polygon_count,
+                          unsigned short min_vertex_index, unsigned short vertex_count)
+{
+    DX8Wrapper::Draw_Strip(start_index,polygon_count,min_vertex_index,vertex_count);
+}

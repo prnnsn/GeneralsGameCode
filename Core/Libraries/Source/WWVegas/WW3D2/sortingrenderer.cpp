@@ -298,7 +298,7 @@ void SortingRendererClass::Insert_Triangles(
 	bool billboard_quads)
 {
 	if (!WW3D::Is_Sorting_Enabled()) {
-		DX8Wrapper::Draw_Triangles(start_index,polygon_count,min_vertex_index,vertex_count);
+		Renderer::Draw_Triangles(start_index,polygon_count,min_vertex_index,vertex_count);
 		return;
 	}
 
@@ -1021,7 +1021,7 @@ void SortingRendererClass::Flush_Sorting_Pool()
 				++a;
 			} while (a < chunkEnd && Same_Billboard_Run(state, overlapping_nodes[tis[a].idx]));
 			Apply_Render_State(state->sorting_state);
-			DX8Wrapper::Draw_Triangles(firstIndex, (indexCursor - firstIndex) / 3,
+			Renderer::Draw_Triangles(firstIndex, (indexCursor - firstIndex) / 3,
 				streamed ? firstVertex : minVertex,
 				streamed ? vertexCursor - firstVertex : maxVertex - minVertex);
 		}
@@ -1072,7 +1072,7 @@ void SortingRendererClass::Flush()
 		}
 		else {
 			DX8Wrapper::Set_Render_State(state->sorting_state);
-			DX8Wrapper::Draw_Triangles(state->start_index,state->polygon_count,state->min_vertex_index,state->vertex_count);
+			Renderer::Draw_Triangles(state->start_index,state->polygon_count,state->min_vertex_index,state->vertex_count);
 			DX8Wrapper::Release_Render_State();
 			Release_Refs(state);
 			clean_list.push_front(state);

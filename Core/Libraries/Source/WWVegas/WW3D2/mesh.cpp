@@ -634,7 +634,7 @@ void MeshClass::Render_Material_Pass(MaterialPassClass * pass,IndexBufferClass *
 			Renderer::Set_Transform(RenderTransform_World,Get_Transform());
 			DX8Wrapper::Set_Index_Buffer(dynamic_ib,vertex_offset);
 
-			DX8Wrapper::Draw_Triangles(
+			Renderer::Draw_Triangles(
 				0,
 				temp_apt.Count(),
 				min_v,
