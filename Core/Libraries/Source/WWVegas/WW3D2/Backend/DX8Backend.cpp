@@ -864,3 +864,84 @@ void Renderer::Set_Stencil_Pass(StencilOp value, StateWrite mode)
 {
     Write_Render_State(D3DRS_STENCILPASS,To_D3D_StencilOp(value),mode);
 }
+
+
+namespace
+{
+void Write_Texture_Stage(unsigned stage,D3DTEXTURESTAGESTATETYPE state,DWORD value,Renderer::TextureStageWrite mode)
+{
+    if (mode == Renderer::TextureStageWrite::Cached)
+        DX8Wrapper::Set_DX8_Texture_Stage_State(stage,state,value);
+    else
+    {
+        DX8CALL(SetTextureStageState(stage,state,value));
+    }
+}
+DWORD To_D3D_TextureOperation(Renderer::TextureOperation value)
+{
+    switch(value)
+    {
+    case Renderer::TextureOperation::SelectArg1: return D3DTOP_SELECTARG1;
+    case Renderer::TextureOperation::Disable: return D3DTOP_DISABLE;
+    case Renderer::TextureOperation::Modulate: return D3DTOP_MODULATE;
+    case Renderer::TextureOperation::Add: return D3DTOP_ADD;
+    case Renderer::TextureOperation::BumpEnvMap: return D3DTOP_BUMPENVMAP;
+    case Renderer::TextureOperation::BumpEnvMapLuminance: return D3DTOP_BUMPENVMAPLUMINANCE;
+    case Renderer::TextureOperation::Modulate2X: return D3DTOP_MODULATE2X;
+    case Renderer::TextureOperation::SelectArg2: return D3DTOP_SELECTARG2;
+    case Renderer::TextureOperation::AddSmooth: return D3DTOP_ADDSMOOTH;
+    case Renderer::TextureOperation::Subtract: return D3DTOP_SUBTRACT;
+    case Renderer::TextureOperation::BlendTextureAlpha: return D3DTOP_BLENDTEXTUREALPHA;
+    case Renderer::TextureOperation::BlendCurrentAlpha: return D3DTOP_BLENDCURRENTALPHA;
+    case Renderer::TextureOperation::AddSigned: return D3DTOP_ADDSIGNED;
+    case Renderer::TextureOperation::AddSigned2X: return D3DTOP_ADDSIGNED2X;
+    case Renderer::TextureOperation::ModulateAlphaAddColor: return D3DTOP_MODULATEALPHA_ADDCOLOR;
+    }
+    WWASSERT(0);
+    return D3DTOP_SELECTARG1;
+}
+DWORD To_D3D_TextureArgument(Renderer::TextureArgument value)
+{
+    switch(value)
+    {
+    case Renderer::TextureArgument::Diffuse: return D3DTA_DIFFUSE;
+    case Renderer::TextureArgument::Texture: return D3DTA_TEXTURE;
+    case Renderer::TextureArgument::Current: return D3DTA_CURRENT;
+    case Renderer::TextureArgument::Factor: return D3DTA_TFACTOR;
+    }
+    WWASSERT(0);
+    return D3DTA_DIFFUSE;
+}
+}
+void Renderer::Set_Color_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_COLOROP,To_D3D_TextureOperation(value),mode);
+}
+void Renderer::Set_Alpha_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_ALPHAOP,To_D3D_TextureOperation(value),mode);
+}
+void Renderer::Set_Color_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_COLORARG1,To_D3D_TextureArgument(value),mode);
+}
+void Renderer::Set_Color_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_COLORARG2,To_D3D_TextureArgument(value),mode);
+}
+void Renderer::Set_Alpha_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_ALPHAARG1,To_D3D_TextureArgument(value),mode);
+}
+void Renderer::Set_Alpha_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode)
+{
+    Write_Texture_Stage(stage,D3DTSS_ALPHAARG2,To_D3D_TextureArgument(value),mode);
+}
+void Renderer::Set_Untracked_Passthrough_Coordinates(unsigned stage,unsigned coordinate_index)
+{
+    DX8CALL(SetTextureStageState(stage,D3DTSS_TEXCOORDINDEX,D3DTSS_TCI_PASSTHRU | coordinate_index));
+}
+void Renderer::Clear_Untracked_Texture(unsigned stage)
+{
+    DX8CALL(SetTexture(stage,nullptr));
+}

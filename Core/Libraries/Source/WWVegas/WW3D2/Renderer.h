@@ -196,6 +196,20 @@ public:
     static void Set_Stencil_Depth_Fail(StencilOp value, StateWrite mode = StateWrite::Cached);
     static void Set_Stencil_Pass(StencilOp value, StateWrite mode = StateWrite::Cached);
 
+    enum class TextureOperation { SelectArg1, Disable, Modulate, Add, BumpEnvMap, BumpEnvMapLuminance, Modulate2X, SelectArg2, AddSmooth, Subtract, BlendTextureAlpha, BlendCurrentAlpha, AddSigned, AddSigned2X, ModulateAlphaAddColor };
+    enum class TextureArgument { Diffuse, Texture, Current, Factor };
+    // Untracked stage writes preserve the legacy DX8CALL instrumentation and
+    // bypass the two-stage wrapper cache, unlike ordinary cached requests.
+    enum class TextureStageWrite { Cached, Untracked };
+    static void Set_Color_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Operation(unsigned stage, TextureOperation value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Color_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Color_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Argument1(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Alpha_Argument2(unsigned stage, TextureArgument value, TextureStageWrite mode = TextureStageWrite::Cached);
+    static void Set_Untracked_Passthrough_Coordinates(unsigned stage, unsigned coordinate_index);
+    static void Clear_Untracked_Texture(unsigned stage);
+
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
     // Scoped terrain bias uses legacy strength units, not a raw API constant.
