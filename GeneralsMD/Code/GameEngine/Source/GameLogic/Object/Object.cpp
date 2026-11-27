@@ -2436,6 +2436,9 @@ void Object::checkDisabledStatus()
 			{
 				clearDisabled( type ); // This will also DECREMENT m_pauseCount in all specialpowers
 				m_disabledMask.set( type, 0 );
+				// Re-read the live mask after callbacks; later flags may have changed.
+				if (!m_disabledMask.any())
+					break;
 			}
 		}
 	}
