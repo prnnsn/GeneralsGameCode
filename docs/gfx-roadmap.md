@@ -2,7 +2,7 @@
 
 Owner decision: 2026-11-27. Follow [AGENTS.md](../AGENTS.md) and the existing contribution policies.
 This is a planning snapshot, not a claim that untested features work. Refresh main, PRs and profiles before choosing work.
-Baseline main: `00567a9de9c005d4d073e34a86d2e05d9261ee53`.
+Baseline main: `ed9ae439d2eb0c4e8fa895cdab3b1e63ca437a59`.
 C/R = relative engineering complexity / regression risk (1–5), not measurements.
 
 ## Completed and ongoing work
@@ -15,11 +15,15 @@ C/R = relative engineering complexity / regression risk (1–5), not measurement
 | 04–06 | Radix sort, bounded sorting geometry, reusable CPU pages | Merged #12–14 |
 | 07–08 | Quad sorting and compatible draw runs | Integrated by #25; count fix #26 |
 | 09 | Stencil shadow upload safety | Merged #17; optimization itself incomplete |
-| 09b.1 | Shadow-pass counters | Open #75 (main); finish review and retain baseline |
-| 10a | Debris profiling | Open #71; finish review and retain baseline |
+| 09b.1 | Shadow-pass counters | Open #75; paused until critical need; retain baseline |
+| 10a | Debris profiling | Open #71; paused until critical need; retain diagnostic work |
 | 11–11c | Quad-depth workers, settings and profiling | Merged #18, #27, #30; benefit not established |
 | 12a–b | Shared static strip prep and shadow rebuild profiling | Merged #28, #70; still serial |
 | 13a.1–4 | Material/draw abstraction, roads/scorch, texture addressing, buffer binding | Merged #31, #72–74 |
+| 13a.5, 13a.6a, 13a.7 | Filters, scoped terrain bias, road/scorch bindings | Merged #83–85 |
+| 13b.1a–b | Resource contract and reproducible corrected inventory | Merged #86, #87, #91 |
+| 13b.2a–c | Buffer descriptors, first non-streaming and streaming consumers | Merged #88–90; remaining consumers pending |
+| 13b.3a–b | Checked 2D layout and eligible packed DDS path | Merged #92; other paths pending |
 
 The reports in #30 and #70 do not justify lowering the default quad worker threshold or parallelizing static shadow strips. #75 identifies small dynamic buffer requests as a candidate for optimization after DX11, not a migration prerequisite.
 
@@ -29,28 +33,28 @@ Keep the existing DX8 behavior, state-cache semantics and resource lifetime duri
 
 | ID | Scope and acceptance | C/R | Dependencies / status |
 | --- | --- | --- | --- |
-| 13a.5 | Typed min/mag/mip filters, anisotropy, capability queries; preserve all legacy fallbacks | 3/2 | #73; draft #83 |
-| 13a.6a | Scoped terrain depth bias backend operation; preserve capability, cache checks and restoration | 2/2 | #23/#29; draft #85 |
-| 13a.7 | Migrate remaining road/scorch buffer binding through existing interface | 2/1 | #72/#74; draft #84 |
+| 13a.5 | Typed min/mag/mip filters, anisotropy, capability queries; preserve all legacy fallbacks | 3/2 | #73; merged #83 |
+| 13a.6a | Scoped terrain depth bias backend operation; preserve capability, cache checks and restoration | 2/2 | #23/#29; merged #85 |
+| 13a.7 | Migrate remaining road/scorch buffer binding through existing interface | 2/1 | #72/#74; merged #84 |
 | 13a.6b | Typed depth comparison/write/test and blend states; migrate a narrow shader consumer; preserve immediate vs deferred semantics | 3/3 | 13a.6a |
 | 13a.6c | Stencil, cull, color write mask and alpha test semantics; distinguish direct device calls from cached wrapper state | 4/3 | 13a.6b |
 | 13a.8 | Fixed-function texture-stage combine, arguments, coordinate transforms and sampler restoration | 4/3 | 13a.5, 13a.6b |
 | 13a.9 | Draw strip, buffer-type draw overloads, immediate primitives and remaining draw/state consumers, in independent subsystem slices | 3/3 | 13a.6–8; no silent change to ordering |
 | 13a.10 | Inventory remaining DX8 dependencies across both titles/editors; ensure an eventual native backend has no hidden direct device access | 3/2 | Continuous; required before full backend selection |
 
-Do not treat the first three draft PRs as a finished abstraction. Their shared Renderer declarations may need rebase reconciliation. Review and compile each independently.
+The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–c and 13a.8–10 remain required where not superseded by later reviewed slices.
 
 ## Phase B — resource abstraction
 
 | ID | Scope and acceptance | C/R |
 | --- | --- | --- |
-| 13b.1 | Inventory resource ownership, refcounts, formats, usage flags, pools, lock/unlock, reset and native-handle escape paths; design neutral resource descriptors and lifetime contract. First-pass audit in [draft #86](https://github.com/prnnsn/GeneralsGameCode/pull/86); complete exhaustive inventory before implementation. | 3/2 |
+| 13b.1 | Inventory resource ownership, refcounts, formats, usage flags, pools, lock/unlock, reset and native-handle escape paths; design neutral resource descriptors and lifetime contract. Contract #86 and corrected inventory #91 merged; continue tracking unresolved native dependencies. | 3/2 |
 | 13b.2 | Vertex/index resource creation and update API; DX8 reference adapter; retain CPU sorting pages and 16-bit indexing | 4/3 |
 | 13b.3 | Texture/surface creation, mip levels, upload, DDS formats and readback; retain legacy fallback behavior | 4/3 |
 | 13b.4 | Render targets, depth/stencil, viewport, copies, screenshots and device-reset/resource recreation | 4/4 |
 | 13b.5 | Migrate remaining resource consumers in both titles and editors; compile/reference tests for ownership and recovery | 4/3 |
 
-13b.1 can begin while Phase A is in review. Implement resource interfaces only after lifetime and format semantics are reviewed. Existing W3D resources are still DX8-backed; adding forwarding methods alone is not enough.
+Next implementation briefs: [13b.3c #93](https://github.com/prnnsn/GeneralsGameCode/pull/93) (checked surface access), [13b.3d #94](https://github.com/prnnsn/GeneralsGameCode/pull/94) (first terrain update consumer, depends on 13b.3c), and independent [13c.1 #95](https://github.com/prnnsn/GeneralsGameCode/pull/95) (isolated device smoke test). A future 13b.3e will address texture ownership/loading after these results; remaining cube/volume, format and surface paths require explicit review. Briefs are not implementations. Implement resource interfaces only after lifetime and format semantics are reviewed. Existing W3D resources are still DX8-backed; adding forwarding methods alone is not enough.
 
 ## Phase C — actual DX11 backend
 
@@ -79,7 +83,7 @@ A standalone device test is not a playable backend. Avoid promising DX11 FPS imp
 | 11d | Reduce quad-worker overhead |
 | 12c | Static shadow parallel preparation |
 
-Reassess each against matched DX8/DX11 traces. Only advance an item early if it is a demonstrated migration dependency or urgent defect/performance regression. Preserve #71/#75 diagnostics; do not open DX8 optimization PRs solely from these profiles.
+Reassess each against matched DX8/DX11 traces. Only advance an item early if it is a demonstrated migration dependency or urgent defect/performance regression. Preserve #71/#75 diagnostics and keep both PRs open, but resume work only for a critical defect, severe regression, demonstrated migration dependency, or explicit owner reprioritization. Do not open DX8 optimization PRs solely from these profiles.
 
 ## After compatible DX11 — remaining GFX roadmap
 
