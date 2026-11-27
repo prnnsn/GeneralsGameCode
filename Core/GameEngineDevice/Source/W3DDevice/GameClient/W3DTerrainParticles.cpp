@@ -240,29 +240,17 @@ void W3DTerrainParticles::flushBatch()
 {
 	if (m_numIndices > 0 && m_numVertices > 0)
 	{
-		DynamicVBAccessClass vertexAccess(BUFFER_TYPE_DYNAMIC_DX8, dynamic_fvf_type, m_numVertices);
+		DynamicVBAccessClass vertexAccess(m_numVertices);
+		if (Renderer::Upload_Dynamic_Vertices(vertexAccess, m_vertexData.data(), sizeof(VertexFormatXYZNDUV2)))
 		{
-			DynamicVBAccessClass::WriteLockClass vertexLock(&vertexAccess);
-			memcpy(vertexLock.Get_Formatted_Vertex_Array(),
-			       m_vertexData.data(),
-			       m_numVertices * sizeof(VertexFormatXYZNDUV2));
+			DynamicIBAccessClass indexAccess(m_numIndices);
+			if (Renderer::Upload_Dynamic_Indices(indexAccess, m_indexData.data()) &&
+			    Renderer::Bind_Dynamic_Triangle_List(vertexAccess, indexAccess))
+			{
+				DX8_RECORD_TERRAIN_PARTICLE_BATCH(m_numIndices / 3);
+				Renderer::Draw_Triangles(0, m_numIndices / 3, 0, m_numVertices);
+			}
 		}
-
-		DynamicIBAccessClass indexAccess(BUFFER_TYPE_DYNAMIC_DX8, m_numIndices);
-		{
-			DynamicIBAccessClass::WriteLockClass indexLock(&indexAccess);
-			memcpy(indexLock.Get_Index_Array(),
-			       m_indexData.data(),
-			       m_numIndices * sizeof(UnsignedShort));
-		}
-
-		Renderer::Set_Index_Buffer(indexAccess, 0);
-		Renderer::Set_Vertex_Buffer(vertexAccess);
-		DX8_RECORD_TERRAIN_PARTICLE_BATCH(m_numIndices / 3);
-		Renderer::Draw_Triangles(0,
-		                           m_numIndices / 3,
-		                           0,
-		                           m_numVertices);
 	}
 
 	m_numVertices = 0;

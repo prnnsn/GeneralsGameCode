@@ -14,6 +14,9 @@ set(WW3D2_SRC
     assetstatus.cpp
     assetstatus.h
     Backend/DX8Backend.cpp
+    Backend/DX8ManagedBufferWrite.h
+    Backend/DX8StreamingBufferWrite.h
+    Backend/DX8VertexLayout.h
     bitmaphandler.cpp
     bitmaphandler.h
     bmp2d.cpp
@@ -157,6 +160,7 @@ set(WW3D2_SRC
     #render2d.h
     render2dsentence.cpp
     render2dsentence.h
+    RenderBuffer.h
     Renderer.h
     renderobjectrecycler.cpp
     renderobjectrecycler.h
