@@ -24,10 +24,12 @@
 
 #include "WW3D2/Backend/DX8ManagedBufferWrite.h"
 #include "WW3D2/Backend/DX8StreamingBufferWrite.h"
+#include "WW3D2/Backend/DX8TextureMipWrite.h"
 #include "WW3D2/Backend/DX8VertexLayout.h"
 #include "WW3D2/dx8wrapper.h"
 #include "WW3D2/formconv.h"
 #include "WWMath/vector3.h"
+#include "WWLib/thread.h"
 #include "WW3D2/lightenvironment.h"
 #include "WWDebug/wwdebug.h"
 
@@ -190,6 +192,22 @@ void Renderer::Set_Shader(const ShaderClass & shader)
 void Renderer::Set_Texture(unsigned stage, TextureBaseClass * texture)
 {
     DX8Wrapper::Set_Texture(stage, texture);
+}
+
+unsigned Renderer::Map_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                       unsigned * pitch, unsigned capacity)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    auto * native = static_cast<IDirect3DTexture8 *>(texture.value);
+    return native ? DX8TextureMipWrite::Lock(*native, data, pitch, capacity) : 0;
+}
+
+bool Renderer::Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                     unsigned * pitch, unsigned mip_count)
+{
+    WWASSERT(ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
+    auto * native = static_cast<IDirect3DTexture8 *>(texture.value);
+    return DX8TextureMipWrite::Unlock(*native, data, pitch, mip_count);
 }
 
 static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)

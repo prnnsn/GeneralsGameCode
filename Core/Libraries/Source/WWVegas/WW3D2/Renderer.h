@@ -43,6 +43,12 @@ class DynamicIBAccessClass;
 class RefCountClass;
 namespace RenderBuffers { struct BufferDesc; }
 
+// Borrowed 2D resource. The caller retains ownership until the mapping has ended.
+struct RenderTexture2DHandle
+{
+    void * value;
+};
+
 struct RenderViewport
 {
     unsigned int x;
@@ -98,6 +104,15 @@ public:
     // Buffer allocation/binding and texture sampler policy remain separate.
     static void Set_Shader(const ShaderClass & shader);
     static void Set_Texture(unsigned stage, TextureBaseClass * texture);
+
+    // Map all levels or release any partial mapping and return zero.
+    // Both arrays must have capacity entries. Call Unmap on the render thread
+    // with the successful count before releasing or publishing the resource.
+    static unsigned Map_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                        unsigned * pitch, unsigned capacity);
+    static bool Unmap_Texture_2D_Mips(RenderTexture2DHandle texture, unsigned char ** data,
+                                      unsigned * pitch, unsigned mip_count);
+
     // Set addressing and border colour for one sampler. Colour is packed ARGB.
     enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
     static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
