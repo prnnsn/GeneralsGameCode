@@ -101,6 +101,16 @@ public:
     static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
     static void Set_Texture_Address_V(unsigned stage, TextureAddress address);
     static void Set_Texture_Border_Color(unsigned stage, unsigned argb);
+    enum class TextureFilter { None, Point, Linear, Anisotropic };
+    struct TextureFilterCaps
+    {
+        bool minLinear, magLinear, mipLinear, minAnisotropic, magAnisotropic;
+    };
+    static TextureFilterCaps Get_Texture_Filter_Caps();
+    static void Set_Texture_Min_Filter(unsigned stage, TextureFilter filter);
+    static void Set_Texture_Mag_Filter(unsigned stage, TextureFilter filter);
+    static void Set_Texture_Mip_Filter(unsigned stage, TextureFilter filter);
+    static void Set_Texture_Max_Anisotropy(unsigned stage, unsigned level);
     static void Set_Material(const VertexMaterialClass * material);
     static void Apply_Render_State_Changes();
     static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
