@@ -192,9 +192,14 @@ void RadiusDecal::update()
 {
 	if (m_decal && m_template)
 	{
-		UnsignedInt now = TheGameLogic->getFrame();
-		Real theta = (2*PI) * (Real)(now % m_template->m_opacityThrobTime) / (Real)m_template->m_opacityThrobTime;
-		Real percent = 0.5f * (Sin(theta) + 1.0f);
+		const UnsignedInt period = m_template->m_opacityThrobTime;
+		Real percent = 1.0f;
+		if (period != 0)
+		{
+			const UnsignedInt now = TheGameLogic->getFrame();
+			const Real theta = (2*PI) * (Real)(now % period) / (Real)period;
+			percent = 0.5f * (Sin(theta) + 1.0f);
+		}
 		Int opac;
 		if( TheGameLogic->getDrawIconUI() )
 		{

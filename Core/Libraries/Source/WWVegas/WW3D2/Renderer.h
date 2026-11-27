@@ -33,6 +33,13 @@ class LightEnvironmentClass;
 class Matrix3D;
 class Matrix4x4;
 class Vector3;
+class ShaderClass;
+class TextureBaseClass;
+class VertexMaterialClass;
+class VertexBufferClass;
+class IndexBufferClass;
+class DynamicVBAccessClass;
+class DynamicIBAccessClass;
 
 struct RenderViewport
 {
@@ -84,6 +91,28 @@ public:
                       float dest_alpha = 0.0f, float z = 1.0f, unsigned int stencil = 0);
     static void Set_Viewport(const RenderViewport & viewport);
     static void Invalidate_Cached_Render_States();
+
+    // Existing W3D material and indexed triangle submission semantics.
+    // Buffer allocation/binding and texture sampler policy remain separate.
+    static void Set_Shader(const ShaderClass & shader);
+    static void Set_Texture(unsigned stage, TextureBaseClass * texture);
+    // Set addressing and border colour for one sampler. Colour is packed ARGB.
+    enum class TextureAddress { Wrap, Mirror, Clamp, Border, MirrorOnce };
+    static void Set_Texture_Address_U(unsigned stage, TextureAddress address);
+    static void Set_Texture_Address_V(unsigned stage, TextureAddress address);
+    static void Set_Texture_Border_Color(unsigned stage, unsigned argb);
+    static void Set_Material(const VertexMaterialClass * material);
+    static void Apply_Render_State_Changes();
+    static void Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
+                               unsigned short min_vertex_index, unsigned short vertex_count);
+
+    // Bind existing W3D buffer resources/access ranges; allocation and locking
+    // remain in the resource layer. Preserve DX8 index offsets and stream defaults.
+    static void Set_Vertex_Buffer(const VertexBufferClass * vb, unsigned stream = 0);
+    static void Set_Vertex_Buffer(const DynamicVBAccessClass & vba);
+    static void Set_Index_Buffer(const IndexBufferClass * ib, unsigned short index_base_offset);
+    static void Set_Index_Buffer(const DynamicIBAccessClass & iba, unsigned short index_base_offset);
+    static void Set_Index_Buffer_Index_Offset(unsigned offset);
 
     static void Set_Transform(RenderTransform transform, const Matrix4x4 & m);
     static void Set_Transform(RenderTransform transform, const Matrix3D & m);

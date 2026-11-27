@@ -37,6 +37,7 @@
 #include "GameClient/Color.h"
 #include "GameClient/RadiusDecal.h"
 #include <deque>
+#include <vector>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class Drawable;
@@ -67,7 +68,6 @@ enum ProductionType CPP_11(: Int);
 enum GadgetGameMessage CPP_11(: Int);
 enum ScienceType CPP_11(: Int);
 enum TimeOfDay CPP_11(: Int);
-enum RadiusCursorType CPP_11(: Int);
 
 //-------------------------------------------------------------------------------------------------
 /** Command options */
@@ -345,7 +345,7 @@ public:
 	OVERRIDE<ThingTemplate> getThingTemplate() const { return m_thingTemplate; }
 	const UpgradeTemplate* getUpgradeTemplate() const { return m_upgradeTemplate; }
 	const SpecialPowerTemplate* getSpecialPowerTemplate() const { return m_specialPower; }
-	RadiusCursorType getRadiusCursorType() const { return m_radiusCursor; }
+	Int getRadiusCursorType() const { return m_radiusCursor; }
 	WeaponSlotType getWeaponSlot() const { return m_weaponSlot; }
 	Int getMaxShotsToFire() const { return m_maxShotsToFire; }
 	const ScienceVec& getScienceVec() const { return m_science; }
@@ -383,7 +383,7 @@ private:
 	const ThingTemplate*					m_thingTemplate;							///< for commands that use thing templates in command data
 	const UpgradeTemplate*				m_upgradeTemplate;						///< for commands that use upgrade templates in command data
 	const SpecialPowerTemplate*		m_specialPower;								///< actual special power template
-	RadiusCursorType							m_radiusCursor;								///< radius cursor, if any
+	Int										m_radiusCursor;								///< radius cursor, if any
 	AsciiString										m_cursorName;									///< cursor name for placement (NEED_TARGET_POS) or valid version (CONTEXTMODE_COMMAND)
 	AsciiString										m_invalidCursorName;					///< cursor name for invalid version
 
@@ -889,8 +889,8 @@ public:
 	const CommandButton *getCommandButtons() { return m_commandButtons; }
 
 	// Built-in cursor IDs remain unchanged. Custom IDs start at RADIUSCURSOR_COUNT.
-	RadiusCursorType findCustomRadiusCursorType(const char* name) const;
-	const RadiusDecalTemplate* findCustomRadiusCursorTemplate(RadiusCursorType type) const;
+	Int findCustomRadiusCursorId(const char* name) const;
+	const RadiusDecalTemplate* findCustomRadiusCursorTemplate(Int cursorId) const;
 	RadiusDecalTemplate& defineCustomRadiusCursor(const char* name);
 
 protected:
@@ -907,6 +907,7 @@ protected:
 	};
 	// RadiusDecal holds a pointer to its template; deque preserves addresses on append.
 	std::deque<CustomRadiusCursorDefinition> m_customRadiusCursors;
+	std::vector<RadiusDecalTemplate> m_defaultRadiusCursorTemplates;
 
 	CommandButton *m_commandButtons;							///< list of possible commands to have
 	CommandSet *m_commandSets;										///< list of all command sets defined

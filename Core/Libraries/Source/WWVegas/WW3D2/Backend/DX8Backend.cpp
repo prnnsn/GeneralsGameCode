@@ -179,6 +179,86 @@ void Renderer::Invalidate_Cached_Render_States()
     DX8Wrapper::Invalidate_Cached_Render_States();
 }
 
+void Renderer::Set_Shader(const ShaderClass & shader)
+{
+    DX8Wrapper::Set_Shader(shader);
+}
+
+void Renderer::Set_Texture(unsigned stage, TextureBaseClass * texture)
+{
+    DX8Wrapper::Set_Texture(stage, texture);
+}
+
+static DWORD To_D3D_Texture_Address(Renderer::TextureAddress address)
+{
+    switch (address)
+    {
+    case Renderer::TextureAddress::Wrap: return D3DTADDRESS_WRAP;
+    case Renderer::TextureAddress::Mirror: return D3DTADDRESS_MIRROR;
+    case Renderer::TextureAddress::Clamp: return D3DTADDRESS_CLAMP;
+    case Renderer::TextureAddress::Border: return D3DTADDRESS_BORDER;
+    case Renderer::TextureAddress::MirrorOnce: return D3DTADDRESS_MIRRORONCE;
+    }
+    WWASSERT(0);
+    return D3DTADDRESS_WRAP;
+}
+
+void Renderer::Set_Texture_Address_U(unsigned stage, TextureAddress address)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_ADDRESSU, To_D3D_Texture_Address(address));
+}
+
+void Renderer::Set_Texture_Address_V(unsigned stage, TextureAddress address)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_ADDRESSV, To_D3D_Texture_Address(address));
+}
+
+void Renderer::Set_Texture_Border_Color(unsigned stage, unsigned argb)
+{
+    DX8Wrapper::Set_DX8_Texture_Stage_State(stage, D3DTSS_BORDERCOLOR, argb);
+}
+
+void Renderer::Set_Material(const VertexMaterialClass * material)
+{
+    DX8Wrapper::Set_Material(material);
+}
+
+void Renderer::Apply_Render_State_Changes()
+{
+    DX8Wrapper::Apply_Render_State_Changes();
+}
+
+void Renderer::Draw_Triangles(unsigned short start_index, unsigned short polygon_count,
+                              unsigned short min_vertex_index, unsigned short vertex_count)
+{
+    DX8Wrapper::Draw_Triangles(start_index, polygon_count, min_vertex_index, vertex_count);
+}
+
+void Renderer::Set_Vertex_Buffer(const VertexBufferClass * vb, unsigned stream)
+{
+    DX8Wrapper::Set_Vertex_Buffer(vb, stream);
+}
+
+void Renderer::Set_Vertex_Buffer(const DynamicVBAccessClass & vba)
+{
+    DX8Wrapper::Set_Vertex_Buffer(vba);
+}
+
+void Renderer::Set_Index_Buffer(const IndexBufferClass * ib, unsigned short index_base_offset)
+{
+    DX8Wrapper::Set_Index_Buffer(ib, index_base_offset);
+}
+
+void Renderer::Set_Index_Buffer(const DynamicIBAccessClass & iba, unsigned short index_base_offset)
+{
+    DX8Wrapper::Set_Index_Buffer(iba, index_base_offset);
+}
+
+void Renderer::Set_Index_Buffer_Index_Offset(unsigned offset)
+{
+    DX8Wrapper::Set_Index_Buffer_Index_Offset(offset);
+}
+
 void Renderer::Set_Transform(RenderTransform transform, const Matrix4x4 & m)
 {
     DX8Wrapper::Set_Transform(To_D3D_Transform(transform), m);

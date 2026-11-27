@@ -1063,6 +1063,7 @@ GlobalData::GlobalData()
 #endif
 	m_clientRetaliationModeEnabled = TRUE; //On by default.
 	m_doubleClickAttackMove = FALSE;
+	m_showCommandHotkeys = DEFAULT_SHOW_COMMAND_HOTKEYS;
 
 }
 
@@ -1206,6 +1207,7 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_useRightMouseScrollWithAlternateMouse = optionPref.getRightMouseScrollWithAlternateMouseEnabled();
 	TheWritableGlobalData->m_clientRetaliationModeEnabled = optionPref.getRetaliationModeEnabled();
 	TheWritableGlobalData->m_doubleClickAttackMove = optionPref.getDoubleClickAttackMoveEnabled();
+	TheWritableGlobalData->m_showCommandHotkeys = optionPref.getBool("ShowCommandHotkeys", DEFAULT_SHOW_COMMAND_HOTKEYS);
 	TheWritableGlobalData->m_jpegQuality = optionPref.getJpegQuality();
 	TheWritableGlobalData->m_keyboardScrollFactor = optionPref.getScrollFactor();
 	TheWritableGlobalData->m_drawScrollAnchor = optionPref.getDrawScrollAnchor();

@@ -448,7 +448,7 @@ public:  // ********************************************************************
 	virtual Bool isAnySelectedKindOf( KindOfType kindOf ) const;		///< is any selected object a kind of
 	virtual Bool isAllSelectedKindOf( KindOfType kindOf ) const;		///< are all selected objects a kind of
 
-	virtual void setRadiusCursor(RadiusCursorType r, const SpecialPowerTemplate* sp, WeaponSlotType wslot);
+	virtual void setRadiusCursor(Int cursorId, const SpecialPowerTemplate* sp, WeaponSlotType wslot);
 	virtual void setRadiusCursorNone() { setRadiusCursor(RADIUSCURSOR_NONE, nullptr, PRIMARY_WEAPON); }
 
 	virtual void setInputEnabled( Bool enable );										///< Set the input enabled or disabled
@@ -930,7 +930,7 @@ protected:
 
 	RadiusDecalTemplate					m_radiusCursors[RADIUSCURSOR_COUNT];
 	RadiusDecal									m_curRadiusCursor;
-	RadiusCursorType						m_curRcType;
+	Int										m_curRcType;
 
 	//Floating Text Data
 	FloatingTextList						m_floatingTextList;				///< Our list of floating text

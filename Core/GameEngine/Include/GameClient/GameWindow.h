@@ -185,6 +185,7 @@ enum
 
 	// Code only flags without a name in WindowStatusNames[]
 	WIN_STATUS_SHORTCUT_BUTTON		= 0x04000000,   // Oh god... this is a total hack for shortcut buttons to handle rendering text top left corner...
+	WIN_STATUS_COMMAND_HOTKEY		= 0x08000000,   // Draw the command button's hotkey above its icon overlays.
 };
 
 

@@ -1270,7 +1270,6 @@ InGameUI::~InGameUI()
 
 	// remove any build available status
 	placeBuildAvailable( nullptr, nullptr );
-	setRadiusCursorNone();
 
 	// delete the message resources
 	freeMessageResources();
@@ -1396,7 +1395,7 @@ void InGameUI::init()
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-void InGameUI::setRadiusCursor(RadiusCursorType cursorType, const SpecialPowerTemplate* specPowTempl, WeaponSlotType weaponSlot)
+void InGameUI::setRadiusCursor(Int cursorType, const SpecialPowerTemplate* specPowTempl, WeaponSlotType weaponSlot)
 {
 	if (cursorType == m_curRcType)
 		return;
@@ -2162,6 +2161,7 @@ void InGameUI::reset()
 {
 	m_isQuitMenuVisible = FALSE;
 	m_inputEnabled = true;
+	setRadiusCursorNone();
 	// reset the command bar
 	TheControlBar->reset();
 
@@ -3230,7 +3230,9 @@ void InGameUI::setGUICommand( const CommandButton *command )
 		m_mouseMode = MOUSEMODE_DEFAULT;
 	}
 
-	// set the command
+	// The same decal style can be shared by commands with different radii.
+	if (command != m_pendingGUICommand)
+		setRadiusCursorNone();
 	m_pendingGUICommand = command;
 
 	// set the mouse cursor for commands that need a targeting or to normal with no command
@@ -6056,7 +6058,9 @@ void InGameUI::resetIdleWorker()
 
 void InGameUI::recreateControlBar()
 {
-	// Clear any decal before its custom template is destroyed.
+	// The old ControlBar owns both the pending command and the decal template.
+	if (m_pendingGUICommand)
+		setGUICommand(nullptr);
 	setRadiusCursorNone();
 	destroyControlBar();
 	createControlBar();
