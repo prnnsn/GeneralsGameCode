@@ -23,8 +23,7 @@ issues/PRs, dependencies, and available profiling results.
 - Defer non-urgent optimizations that are specific to DX8, are likely to be
   replaced during migration, or lack a demonstrated performance benefit.
 - Preserve existing diagnostic instrumentation and baseline measurements.
-  Finish useful diagnostics already in progress without expanding them into
-  unnecessary DX8 optimization work.
+  Keep existing diagnostic evidence. Do not resume PR #71 or #75 until a critical defect, severe regression, or demonstrated migration dependency requires it, unless the owner explicitly reprioritizes them.
 - Keep deferred tasks in the roadmap; do not treat deferral as cancellation.
   Re-profile representative workloads once DX11 is stable, compare against
   DX8 baselines, and reassess the necessity, scope, benefit and risk before
@@ -34,9 +33,9 @@ issues/PRs, dependencies, and available profiling results.
 
 | Stage | Decision |
 | --- | --- |
-| GFX 09b.1 (PR #75) | Finish review and retain shadow-pass profiling as baseline. |
+| GFX 09b.1 (PR #75) | Deferred until critical need; preserve open PR and baseline. |
 | GFX 09b.2–09b.6 | Defer shadow geometry batching, cross-stencil-pass reuse, binding/draw-call optimizations and their comparative optimization testing until DX11, unless an urgent need or migration dependency is demonstrated. |
-| GFX 10a (PR #71) | Finish debris profiling and retain baseline data. |
+| GFX 10a (PR #71) | Deferred until critical need; preserve open PR and existing diagnostic work. |
 | GFX 10b–10c | Defer debris optimization unless urgent or required for migration. |
 | GFX 11d | Defer further particle worker optimization until evidence supports it. |
 | GFX 12c | Defer static shadow parallelization until new measurements justify it. |
