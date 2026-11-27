@@ -41,3 +41,12 @@ Use unit tests independent of device creation, including boundary/negative cases
 ## Exit gate and next stages
 
 Publish reviewable implementation and tests separately from this brief, with corrected inventory provenance, supported layouts and any deferred/unverified legacy variants. No live graphics changes should be needed in 13b.2a. After approval, 13b.2b adds DX8 create/release/write adapter and one non-streaming consumer (scorch candidate); 13b.2c handles scoped dynamic maps, failure publication, ring wrap and CPU sorting lifetime. Keep DX8 performance optimizations deferred. No automatic merge.
+
+## Implementation review snapshot
+
+Implementation commit `6d03a87801b4845e4d21179812c0699e63ee995a`: shared `RenderBuffer.h`, isolated `Backend/DX8VertexLayout.h`, both Google Test sources, and explicit CMake registration. All live rendering callers are unchanged. This is a draft candidate; the corrected local inventory revision must still be attached and checked before acceptance.
+
+- Native decoder interprets XYZ/XYZRHW and explicit UV widths; rejects blend/shader-specific declarations, unknown bits and producer stride mismatches. The stricter legacy conversion also checks the offsets and size in FVFInfoClass; unsupported RHW/point-size metadata, TG3 mismatch, DMAP stride mismatch and mutable overrides stay deferred until caller-specific verification. Neutral layout can describe blend storage, but no legacy blend converter is claimed.
+- Ordinary named FVF producer sizes and the shared dynamic layout offsets have Google Test cases; verify all actual producer offsets and optional paths locally before using them. No live adapter or allocation is introduced.
+- Standalone neutral smoke check in the Linux analysis environment: source copied from the connector and verified using git hash-object, blob `59872b1b7a249851a1a21e69240fea91c4f1cf58`; GCC C++11, `-Wall -Wextra -Werror -pedantic -fsanitize=undefined -O2`. Passed 2,151,680 byte-range combinations (capacity 0..79, first/count 0..81, stride 0/2/32/UINT32_MAX), including 1,981,039 expected rejections and unchanged failure outputs. Additional descriptor/layout and draw-address assertions passed. This standalone harness is not the registered Google Test suite. SDK-dependent tests, MSVC Win32 builds, game/editor smoke and replay checks remain unrun.
+- Follow-up implementation briefs: #89 (13b.2b), #90 (13b.2c). Both blocked on accepted code and local validation.
