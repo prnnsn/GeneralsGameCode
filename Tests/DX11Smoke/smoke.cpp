@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <utility>
 
 template<class T> struct ReleaseCom { void operator()(T* p) const { if (p) p->Release(); } };
 template<class T> using Com = std::unique_ptr<T, ReleaseCom<T>>;
@@ -165,6 +166,43 @@ static LRESULT CALLBACK WindowProc(HWND w, UINT m, WPARAM wp, LPARAM lp)
     return DefWindowProcW(w,m,wp,lp);
 }
 
+static bool PumpMessages()
+{
+    MSG msg;
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+    {
+        if (msg.message == WM_QUIT) return false;
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+    return true;
+}
+
+static bool ResizeClient(HWND window, Smoke& smoke, UINT w, UINT h)
+{
+    RECT rect = {0,0,static_cast<LONG>(w),static_cast<LONG>(h)};
+    if (!AdjustWindowRect(&rect,WS_OVERLAPPEDWINDOW,FALSE) ||
+        !SetWindowPos(window,nullptr,0,0,rect.right-rect.left,rect.bottom-rect.top,
+                      SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) ||
+        !PumpMessages() || !GetClientRect(window,&rect))
+        return false;
+    return rect.right > 0 && rect.bottom > 0 &&
+           smoke.Resize(static_cast<UINT>(rect.right),static_cast<UINT>(rect.bottom));
+}
+
+static bool MinimizeRestore(HWND window, Smoke& smoke)
+{
+    ShowWindow(window,SW_MINIMIZE);
+    if (!PumpMessages() || !IsIconic(window) || !smoke.Resize(0,0))
+        return false;
+    ShowWindow(window,SW_RESTORE);
+    if (!PumpMessages() || IsIconic(window))
+        return false;
+    RECT rect = {};
+    return GetClientRect(window,&rect) && rect.right > 0 && rect.bottom > 0 &&
+           smoke.Resize(static_cast<UINT>(rect.right),static_cast<UINT>(rect.bottom));
+}
+
 int main(int argc, char** argv)
 {
     bool warp = false, debug = false;
@@ -186,9 +224,11 @@ int main(int argc, char** argv)
     for (int pass = 0; pass < 2 && ok; ++pass)
     {
         Smoke test;
-        ok = test.Init(window, warp, debug) && test.DrawAndVerify() &&
-             test.Resize(0,0) && test.Resize(512,256) && test.DrawAndVerify() &&
-             test.Resize(320,240) && test.DrawAndVerify();
+        ok = test.Init(window, warp, debug) &&
+             ResizeClient(window,test,320,240) && test.DrawAndVerify() &&
+             MinimizeRestore(window,test) && test.DrawAndVerify() &&
+             ResizeClient(window,test,512,256) && test.DrawAndVerify() &&
+             ResizeClient(window,test,320,240) && test.DrawAndVerify();
     }
     DestroyWindow(window);
     UnregisterClassW(wc.lpszClassName, instance);
