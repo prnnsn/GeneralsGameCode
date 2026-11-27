@@ -169,6 +169,34 @@ TEST(RenderTexture, StagedDdsValidatesAllMipsAndCopiesOnlyTheirBlockRows)
     EXPECT_EQ(expected_small, small_surface);
 }
 
+TEST(RenderTexture, ClearRowsPreservesPaddingAndNeedsNoTrailingPadding)
+{
+    MipLayout layout = {};
+    ASSERT_TRUE(TryMipLayout({ 3, 2, 1, WW3D_FORMAT_A8R8G8B8 }, 0, layout));
+    std::array<unsigned char, 28> pixels;
+    pixels.fill(0xcd);
+
+    ASSERT_TRUE(TryClearRows(layout, pixels.data(), 16, pixels.size()));
+    const std::array<unsigned char, 28> expected = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xcd, 0xcd, 0xcd, 0xcd,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    EXPECT_EQ(expected, pixels);
+}
+
+TEST(RenderTexture, ClearRowsRejectsInvalidViewsWithoutWriting)
+{
+    const MipLayout layout = { 3, 2, 12, 2 };
+    std::array<unsigned char, 28> pixels;
+    pixels.fill(0xcd);
+    const auto original = pixels;
+
+    EXPECT_FALSE(TryClearRows(layout, pixels.data(), 16, 27));
+    EXPECT_FALSE(TryClearRows(layout, pixels.data(), 11, pixels.size()));
+    EXPECT_FALSE(TryClearRows(layout, nullptr, 16, pixels.size()));
+    EXPECT_EQ(original, pixels);
+}
+
 TEST(RenderTexture, PaddedRowsUseOnlyRequiredBytes)
 {
     MipLayout mip = {};

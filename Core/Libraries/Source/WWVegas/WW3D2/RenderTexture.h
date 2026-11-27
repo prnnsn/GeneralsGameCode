@@ -76,4 +76,8 @@ bool TryPackedDDSMips(const Texture2DDesc & desc, std::uint32_t payload_bytes,
 // rows. Trailing padding after the last row is optional.
 bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch,
                 std::uint32_t available_bytes, std::uint32_t & out);
+
+// Clear each row's useful bytes only. Invalid spans leave the destination untouched.
+bool TryClearRows(const MipLayout & layout, unsigned char * data,
+                  std::uint32_t row_pitch, std::uint32_t available_bytes);
 }

@@ -144,4 +144,16 @@ bool TryRowSpan(const MipLayout & layout, std::uint32_t row_pitch, std::uint32_t
     out = static_cast<std::uint32_t>(span);
     return true;
 }
+
+bool TryClearRows(const MipLayout & layout, unsigned char * data,
+                  std::uint32_t row_pitch, std::uint32_t available_bytes)
+{
+    std::uint32_t span;
+    if (!data || !TryRowSpan(layout, row_pitch, available_bytes, span))
+        return false;
+
+    for (std::uint32_t row = 0; row < layout.row_count; ++row)
+        std::memset(data + row * row_pitch, 0, layout.row_bytes);
+    return true;
+}
 }
