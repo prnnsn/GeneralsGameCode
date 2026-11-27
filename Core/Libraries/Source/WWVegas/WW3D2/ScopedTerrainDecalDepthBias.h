@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "WW3D2/dx8wrapper.h"
+#include "WW3D2/Renderer.h"
 
 // D3D8's integer ZBIAS (0..16) pulls coplanar polygons toward the camera.
 // Keep depth testing enabled; never alter depth writes or the world position.
@@ -28,24 +28,14 @@ class ScopedTerrainDecalDepthBias
 {
 public:
     explicit ScopedTerrainDecalDepthBias(unsigned bias = 1)
+        : changed(Renderer::Try_Begin_Terrain_Depth_Bias(bias))
     {
-        if (bias == 0 || bias > 16 || !DX8Wrapper::_Get_D3D_Device8() ||
-            !DX8Wrapper::Get_Current_Caps()->Support_ZBias())
-            return;
-
-        const unsigned previous = DX8Wrapper::Get_DX8_Render_State(D3DRS_ZBIAS);
-        // An uninitialised cache value or a preexisting nonzero bias is not ours to change.
-        if (previous != 0)
-            return;
-
-        DX8Wrapper::Set_DX8_Render_State(D3DRS_ZBIAS, bias);
-        changed = true;
     }
 
     ~ScopedTerrainDecalDepthBias()
     {
         if (changed)
-            DX8Wrapper::Set_DX8_Render_State(D3DRS_ZBIAS, 0);
+            Renderer::End_Terrain_Depth_Bias();
     }
 
     ScopedTerrainDecalDepthBias(const ScopedTerrainDecalDepthBias &) = delete;
