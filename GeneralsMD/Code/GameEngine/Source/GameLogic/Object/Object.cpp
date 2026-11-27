@@ -2485,7 +2485,7 @@ BehaviorModule** Object::nextIndexedBehavior(BehaviorModule** start, UnsignedInt
 
 void Object::pauseAllSpecialPowers( const Bool disabling ) const
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -5544,7 +5544,7 @@ SpecialPowerModuleInterface *Object::getSpecialPowerModule( const SpecialPowerTe
 		return nullptr;
 
 	// search the modules for the one with the matching template
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -6107,7 +6107,7 @@ DockUpdateInterface *Object::getDockUpdateInterface()
 // ------------------------------------------------------------------------------------------------
 SpecialPowerModuleInterface* Object::findSpecialPowerModuleInterface( SpecialPowerType type ) const
 {
-	for (BehaviorModule** m = m_behaviors; *m; ++m)
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
@@ -6132,7 +6132,7 @@ SpecialPowerModuleInterface* Object::findSpecialPowerModuleInterface( SpecialPow
 // ------------------------------------------------------------------------------------------------
 SpecialPowerModuleInterface* Object::findAnyShortcutSpecialPowerModuleInterface() const
 {
-	for( BehaviorModule** m = m_behaviors; *m; ++m )
+	for (BehaviorModule** m = nextIndexedBehavior(m_behaviors, m_specialPowerBehaviorMask); m && *m; m = nextIndexedBehavior(m + 1, m_specialPowerBehaviorMask))
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();
 		if (!sp)
