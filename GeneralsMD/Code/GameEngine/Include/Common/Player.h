@@ -60,6 +60,7 @@
 #include "Common/ScoreKeeper.h"
 #include "Common/Team.h"
 #include "Common/Upgrade.h"
+#include <map>
 
 // ----------------------------------------------------------------------------------------------
 
@@ -823,6 +824,8 @@ private:
 	typedef std::list<SpecialPowerReadyTimerType> SpecialPowerReadyTimerList;
 	typedef SpecialPowerReadyTimerList::iterator SpecialPowerReadyTimerListIterator;
 	SpecialPowerReadyTimerList m_specialPowerReadyTimerList;
+	typedef std::map<UnsignedInt, SpecialPowerReadyTimerType*> SpecialPowerTimerIndex;
+	SpecialPowerTimerIndex m_specialPowerTimerIndex;
 
 	Squad									*m_squads[NUM_HOTKEY_SQUADS];	///< The hotkeyed squads
 	Squad									*m_currentSelection;		///< This player's currently selected group
