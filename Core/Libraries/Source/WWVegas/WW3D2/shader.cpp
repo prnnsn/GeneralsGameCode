@@ -335,7 +335,7 @@ const Blend srcBlendLUT[] =
 	Blend(Renderer::BlendFactor::Zero, false),
 	Blend(Renderer::BlendFactor::One, false),
 	Blend(Renderer::BlendFactor::SrcAlpha, true),
- 	Blend(Renderer::BlendFactor::DestColor, true)
+	Blend(Renderer::BlendFactor::DestColor, true)
 };
 static_assert(ARRAY_SIZE(srcBlendLUT) == ShaderClass::SRCBLEND_MAX, "Incorrect array size");
 
@@ -343,10 +343,10 @@ const Blend dstBlendLUT[] =
 {
 	Blend(Renderer::BlendFactor::Zero, false),
 	Blend(Renderer::BlendFactor::One, false),
- 	Blend(Renderer::BlendFactor::SrcColor, false),
- 	Blend(Renderer::BlendFactor::InvSrcColor, false),
- 	Blend(Renderer::BlendFactor::SrcAlpha, true),
- 	Blend(Renderer::BlendFactor::InvSrcAlpha, true)
+	Blend(Renderer::BlendFactor::SrcColor, false),
+	Blend(Renderer::BlendFactor::InvSrcColor, false),
+	Blend(Renderer::BlendFactor::SrcAlpha, true),
+	Blend(Renderer::BlendFactor::InvSrcAlpha, true)
 };
 static_assert(ARRAY_SIZE(dstBlendLUT) == ShaderClass::DSTBLEND_MAX, "Incorrect array size");
 
