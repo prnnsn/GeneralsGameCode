@@ -2,7 +2,7 @@
 
 Scope: Zero Hour (GeneralsMD) first; shared Core changes must build for both games. Integration order, not PR creation order. C = complexity, R = regression/determinism risk (1–5). All code changes in separate draft PRs for review; no automatic merges.
 
-Baseline: main 1ca0688fb2ba8b04f45720f9fc37ad3e952c4061. Issues #53–68. Initial state: no INI validator implementation confirmed in main. Drafts: #76 (this roadmap), #77 (01a), #78 (01b.1, stacked on #77). Track actual merged commits, draft/closed PRs and test evidence, not merely issue closure.
+Baseline: main 1ca0688fb2ba8b04f45720f9fc37ad3e952c4061. Issues #53–68. Initial state: no INI validator implementation confirmed in main. Drafts: #76 (this roadmap); #78 is the cumulative 01a + 01b.1 delivery, #77 is reference/fallback only. Track actual merged commits, draft/closed PRs and test evidence, not merely issue closure.
 
 ## Contract
 
@@ -15,8 +15,8 @@ Baseline: main 1ca0688fb2ba8b04f45720f9fc37ad3e952c4061. Issues #53–68. Initia
 
 | ID | Scope | Issue | C | R | Depends on | Initial status |
 |---|---|---|---|---|---|---|
-| INI 01a | Diagnostic stage, severity, record formatting and unit tests | #53 | 1 | 1 | — | Draft #77 |
-| INI 01b.1 | Isolated session collector, counts, sorted records | #53 | 2 | 1 | 01a | Draft #78 (stacked) |
+| INI 01a | Diagnostic stage, severity, record formatting and unit tests | #53 | 1 | 1 | — | Included in combined draft #78; #77 reference |
+| INI 01b.1 | Isolated session collector, counts, sorted records | #53 | 2 | 1 | 01a | Combined draft #78 |
 | INI 01b.2 | Report writer, BIGFile and source metadata, session counters; provenance-aware deduplication | #53 | 2 | 1 | 01b.1,04a | Planned |
 | INI 02a | Classify resolution timing and map-repairability per field | #54 | 2 | 1 | 01a | Planned |
 | INI 04a | Source location, actual BIG/loose VFS provenance and typed reference registration | #56 | 3 | 2 | 01a | Planned |
@@ -47,7 +47,7 @@ Baseline: main 1ca0688fb2ba8b04f45720f9fc37ad3e952c4061. Issues #53–68. Initia
 
 ## Current draft review order
 
-Review #76 (documentation) independently; review #77 before #78. #78 is based on the #77 branch intentionally and must be retargeted after #77 integration. Both code drafts are unbuilt and untested; no engine hooks are active. Continue with 02a and 04a after the core contract review; no automated merge.
+Review #76 as documentation; review 01a and 01b.1 commits within cumulative #78 (now targeting main). #77 remains a component-level reference/fallback, not a separate delivery. #78 includes four original commits and three files; main has advanced 86 commits at audit 669bdff, and GitHub reports it not mergeable after retargeting. Refresh against current main and resolve/check conflicts before building; no engine hooks are active and no test result is claimed. No automatic merge. Continue with 02a and 04a after the core contract review.
 
 ## Review gates
 
@@ -55,3 +55,16 @@ Review #76 (documentation) independently; review #77 before #78. #78 is based on
 2. Verify wrong fields, missing required targets, explicit None, forward references, map-added target, map-replaced/removed module, repeated map, failed load, save/replay. Verify identical virtual paths across BIG archives, loose/BIG precedence, effective field override provenance, unknown origin and map unmount. No invented full coverage.
 3. Compare correct data with diagnostics on/off: IDs, CRC, RNG sequence, replay results, network simulation; measure startup/load time and RAM.
 4. Record test outcomes and link each PR. Do not claim merged or verified until evidence exists.
+
+## Delivery batching (owner decision 2026-11-28)
+
+Keep step IDs and Issues as acceptance criteria, not compulsory separate PRs. One thematic draft, individual commits, unit/fixture coverage per slice and a single combined full build/test cycle where feasible. Planned groups, contingent on dependency acceptance and small diffs:
+
+| Group | Steps | Gate |
+|---|---|---|
+| INI-A | 01a + 01b.1 (#78) | Diagnostic records/session only; refresh main first. |
+| INI-B | 06a + 06b (#58) | Upgrade references, common fixtures; no runtime fixes. |
+| INI-C | 07a + 07b (#59) | CommandButton/CommandSet diagnostics only, after 06a. |
+| INI-D | 09a + 09b (#61) | Weapon/Armor diagnostic rules only; preserve 3/8 slot support and no SIM changes. |
+
+01b.2 report writer remains dependent on 04a provenance; 04a/b, IIV/MIV lifecycle and actual integration boundaries remain separately reviewable due to VFS/override/session risks. Keep syntax acceptance changes, script checks, asset checks, Strict/Validate Only, runtime fixes and optional lookup cache isolated where their test requirements differ. INI 16 fixtures grow alongside each group; final compatibility gate remains distinct. Split any group if diff, risk, ownership or diagnostics become harder to isolate.
