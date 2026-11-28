@@ -2,7 +2,7 @@
 
 Owner decision: 2026-11-27. Follow [AGENTS.md](../AGENTS.md) and the existing contribution policies.
 This is a planning snapshot, not a claim that untested features work. Refresh main, PRs and profiles before choosing work.
-Baseline main: `f01d1eb38654cdcef3eefbf750f7f1d7ed911d80`.
+Baseline main for original snapshot: `f01d1eb38654cdcef3eefbf750f7f1d7ed911d80`; delivery audit: `669bdff725182da2b279bc8f7787a55ddab2f837`.
 C/R = relative engineering complexity / regression risk (1–5), not measurements.
 
 ## Completed and ongoing work
@@ -41,10 +41,10 @@ Keep the existing DX8 behavior, state-cache semantics and resource lifetime duri
 | 13a.5 | Typed min/mag/mip filters, anisotropy, capability queries; preserve all legacy fallbacks | 3/2 | #73; merged #83 |
 | 13a.6a | Scoped terrain depth bias backend operation; preserve capability, cache checks and restoration | 2/2 | #23/#29; merged #85 |
 | 13a.7 | Migrate remaining road/scorch buffer binding through existing interface | 2/1 | #72/#74; merged #84 |
-| 13a.6b | Typed depth comparison/write/test and blend states; migrate shader consumer; preserve cached vs immediate semantics | 3/3 | #117 code draft |
-| 13a.6c | Stencil, cull and alpha semantics; both shadow paths; remaining color-mask/global cull follow-ups | 4/3 | #117 code draft; partial consumer migration |
-| 13a.8 | Fixed-function shader texture combine and arguments, including untracked stage 2; remaining coordinate transforms and other consumers | 4/3 | #118 code draft stacked on #117 |
-| 13a.9 | Indexed draw route/strip API and first consumer batch; remaining raw-device and immediate primitives pending | 3/3 | #119 code draft; coordinate Renderer changes |
+| 13a.6b | Typed depth comparison/write/test and blend states; migrate shader consumer; preserve cached vs immediate semantics | 3/3 | #117 merged |
+| 13a.6c | Stencil, cull and alpha semantics; both shadow paths; remaining color-mask/global cull follow-ups | 4/3 | Merged #117; partial consumer migration |
+| 13a.8 | Fixed-function shader texture combine and arguments, including untracked stage 2; remaining coordinate transforms and other consumers | 4/3 | #118 head already contained in main (compare: 0 ahead); open PR is stale, no duplicate implementation |
+| 13a.9 | Indexed draw route/strip API and first consumer batch; remaining raw-device and immediate primitives pending | 3/3 | Merged #119; coordinate remaining Renderer changes |
 | 13a.10 | Inventory remaining DX8 dependencies across both titles/editors; ensure an eventual native backend has no hidden direct device access | 3/2 | Continuous; required before full backend selection |
 
 The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–c and 13a.8–10 remain required where not superseded by later reviewed slices.
@@ -74,11 +74,11 @@ Implement resource interfaces only after lifetime and format semantics are revie
 | 13b.3h | Single-mip checked map; radar shroud writes | 3/3 | Merged #105 |
 | 13b.3i | Single-mapping radar object overlay | 3/3 | Merged #107 |
 | 13b.3j | Checked pitch-aware terrain atlas | 3/3 | #94 code draft, depends on #105 |
-| 13b.3k | Checked cube face and volume slice CPU layout | 3/2 | #115 code draft |
+| 13b.3k | Checked cube face and volume slice CPU layout | 3/2 | Merged #115 |
 | 13b.3l | Remaining 2D CPU staging/ownership and SurfaceClass lock/access paths | 4/3 | Planned; inspect residuals, do not duplicate #101–105 |
 | 13b.3m | Cube/volume actual loaders and native ownership, subresource/face/slice staging | 4/4 | Planned, after #115 |
 | 13b.3n | Remaining 2D/surface consumers, partial rects, format and native escape audit | 4/3 | Planned; coordinate 13b.4/5 |
-| 13b.4a | Logical color/depth/viewport descriptors and checked single-sample footprint | 3/2 | #116 code draft |
+| 13b.4a | Logical color/depth/viewport descriptors and checked single-sample footprint | 3/2 | Merged #116 |
 
 Previous documentation briefs #93 (retained surface access) and #100 (ordinary 2D creation/ownership) overlap the merged #101/#102/#105. Do not implement them as originally written; keep only residual requirements in 13b.3l/n. #94 now contains implementation 13b.3j. Preserve canonical numbering of merged PRs. New drafts are AI-assisted internal fork candidates awaiting local review and Win32 validation.
 
@@ -148,3 +148,12 @@ These are planning candidates, not guarantees of donor feature availability or i
 ## Review workflow
 
 Use focused PRs with explicit dependencies and real validation status. Start from current main, keep unrelated SIM/INI/network work out, and do not auto-merge. In the initial DX11 compatibility milestone preserve existing rendering, assets, gameplay and editor behavior; add new effects only after the reference backend is stable.
+
+## Delivery batching — 2026-11-28
+
+- #115, #116, #117, #119 confirmed merged; #118 is still open against the old #117 branch, but its head is already an ancestor of main (0 commits ahead). Do not rebuild or reapply #118; reconcile its metadata with reviewer separately. #96 is the roadmap review, #93/#100 superseded briefs are references only.
+- Phase A residuals: combine inventory/doc-only changes without game compilation; batch small, semantically equivalent state/consumer migrations into one draft per existing renderer interface when all preserve the same call order/cache semantics and share the same trace/visual tests. Keep separate commits per consumer. Do not combine state semantics with resource ownership, reset or backend migration.
+- Phase B: group descriptor-only CPU validation with its focused unit tests where no native lifetime changes occur; group proven equivalent ordinary 2D call-site conversions only once mapping/ownership contract is accepted. Keep terrain atlas #94, cube/volume native loader ownership, targets/reset/recreation and native escape changes isolated because failure modes differ. Never rerun completed descriptor PRs as new work.
+- DX11 device smoke #95 stays independent; buffer, texture and target/reset milestones remain separate until validated. Do not mix game backend switch with new effects.
+- GFX 30–32: #123 is documentary audit; #121 is independent profiling baseline; #122 is same-thread radar value capture. Keep #121 and #122 separate code reviews; reuse a baseline and one integrated comparison session only after capturing the pre-change measurements and passing individual gates. Do not combine snapshot lifetime, interpolation or worker/thread changes into one PR.
+- #71/#75 remain paused; no extra work. No new merge into main or test claim. Preserve draft review gates and explicit dependencies; only one full build per safe thematic integration candidate where feasible, tests per slice still mandatory. Split when risk, test isolation or rollback worsens.
