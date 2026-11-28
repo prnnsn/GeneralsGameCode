@@ -76,3 +76,7 @@ Refresh the actual open PR/issue state and existing milestones first; reuse exac
 | SIM — Determinism | Issues #2, #4, #5 | RNG and CRC diagnostics, faction pool consistency and deterministic regression gates verified. |
 
 Keep #33 (weapon-slot feature), #6 (faction expansion) and #69 (lobby UI) independently tracked until a concrete feature milestone is useful. Keep #71/#75 and OPT-D #37/#51/#52 deferred; #77, #93/#100, #118 and original OPT component references are not extra delivery work. When provisioning, verify every assignment by reading it back and report any failure. This table is a proposed mapping, not a claim of actual milestone creation or assignment.
+
+### GFX issue tracking
+
+Use #124 (Renderer Abstraction), #125 (DX11 Backend), #126 (Performance Optimization, deferred remainder), #127 (Visual Improvements, deferred), #128 (SIM/Render Separation) as umbrella issues. Add #124, #125 and #128 to their respective planned GFX milestones when provisioned; leave #126 and #127 outside active migration milestones until reprioritized. Link PRs without automatic issue-closing keywords; close only when all mandatory acceptance criteria are verified. Preserve DX11-first policy and independent review gates.
