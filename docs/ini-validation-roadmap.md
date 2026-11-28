@@ -47,7 +47,7 @@ Baseline: main 1ca0688fb2ba8b04f45720f9fc37ad3e952c4061. Issues #53–68. Initia
 
 ## Current draft review order
 
-Review #76 as documentation; review 01a and 01b.1 commits within cumulative #78 (now targeting main). #77 remains a component-level reference/fallback, not a separate delivery. #78 includes four original commits and three files; main has advanced 86 commits at audit 669bdff, and GitHub reports it not mergeable after retargeting. Refresh against current main and resolve/check conflicts before building; no engine hooks are active and no test result is claimed. No automatic merge. Continue with 02a and 04a after the core contract review.
+Review #76 as documentation; review 01a and 01b.1 commits within cumulative #78 (now targeting main). #77 remains a component-level reference/fallback, not a separate delivery. #78 includes four original commits and three files; main has advanced 86 commits at audit 669bdff. A repeated GitHub check after retargeting reports mergeable=true; INITest.cpp on main has the same blob SHA as the original merge base. Refresh against current main and inspect the integration before building; no engine hooks are active and no test result is claimed. No automatic merge. Continue with 02a and 04a after the core contract review.
 
 ## Review gates
 
