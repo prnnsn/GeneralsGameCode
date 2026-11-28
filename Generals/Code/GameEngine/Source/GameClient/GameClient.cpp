@@ -29,6 +29,7 @@
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "Lib/Profile.h"
 #include "GameClient/GameClient.h"
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
@@ -541,8 +542,14 @@ void GameClient::update()
 	if (m_intro != nullptr)
 	{
 		// redraw all views, update the GUI
-		TheDisplay->UPDATE();
-		TheDisplay->DRAW();
+		{
+			PROFILER_SECTION_NAME("GFX31.DisplayUpdate");
+			TheDisplay->UPDATE();
+		}
+		{
+			PROFILER_SECTION_NAME("GFX31.DisplayDraw");
+			TheDisplay->DRAW();
+		}
 		return;
 	}
 
@@ -661,7 +668,10 @@ void GameClient::update()
 
 	// update display
 	{
-		TheDisplay->UPDATE();
+		{
+			PROFILER_SECTION_NAME("GFX31.DisplayUpdate");
+			TheDisplay->UPDATE();
+		}
 	}
 
 	// update all particle systems
@@ -679,7 +689,10 @@ void GameClient::update()
 	// redraw all views, update the GUI
 	//if(TheGameLogic->getFrame() >= 2)
 
-		TheDisplay->DRAW();
+		{
+			PROFILER_SECTION_NAME("GFX31.DisplayDraw");
+			TheDisplay->DRAW();
+		}
 	}
 
 	{

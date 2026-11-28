@@ -27,6 +27,7 @@
 // Author: Michael S. Booth, April 2001
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "Lib/Profile.h"
 
 #include "Common/ActionManager.h"
 #include "Common/AudioAffect.h"
@@ -722,33 +723,55 @@ DECLARE_PERF_TIMER(GameEngine_update)
 void GameEngine::update()
 {
 	USE_PERF_TIMER(GameEngine_update)
+	PROFILER_SECTION_NAME("GFX31.EngineUpdate");
 	{
 		{
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
 			VERIFY_CRC
 
-			TheRadar->UPDATE();
+			{
+				PROFILER_SECTION_NAME("GFX31.RadarUpdate");
+				TheRadar->UPDATE();
+			}
 
 			/// @todo Move audio init, update, etc, into GameClient update
 
-			TheAudio->UPDATE();
-			TheGameClient->UPDATE();
-			TheMessageStream->propagateMessages();
+			{
+				PROFILER_SECTION_NAME("GFX31.AudioUpdate");
+				TheAudio->UPDATE();
+			}
+			{
+				PROFILER_SECTION_NAME("GFX31.ClientUpdate");
+				TheGameClient->UPDATE();
+			}
+			{
+				PROFILER_SECTION_NAME("GFX31.MessagePropagation");
+				TheMessageStream->propagateMessages();
+			}
 
 			if (TheNetwork != nullptr)
 			{
-				TheNetwork->UPDATE();
+				{
+					PROFILER_SECTION_NAME("GFX31.NetworkUpdate");
+					TheNetwork->UPDATE();
+				}
 			}
 		}
 
 		// TheSuperHackers @info Ignores frozen time because the script engine needs updating in the logic update regardless.
 		if (canUpdateGameLogic(FramePacer::IgnoreFrozenTime))
 		{
-			TheGameLogic->UPDATE();
+			{
+				PROFILER_SECTION_NAME("GFX31.LogicUpdate");
+				TheGameLogic->UPDATE();
+			}
 
 			if (!TheFramePacer->isTimeFrozen())
 			{
-				TheGameClient->step();
+				{
+					PROFILER_SECTION_NAME("GFX31.ClientStep");
+					TheGameClient->step();
+				}
 			}
 		}
 	}
