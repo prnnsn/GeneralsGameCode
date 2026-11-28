@@ -47,7 +47,7 @@ Keep the existing DX8 behavior, state-cache semantics and resource lifetime duri
 | 13a.9 | Indexed draw route/strip API and first consumer batch; remaining raw-device and immediate primitives pending | 3/3 | Merged #119; coordinate remaining Renderer changes |
 | 13a.10 | Inventory remaining DX8 dependencies across both titles/editors; ensure an eventual native backend has no hidden direct device access | 3/2 | Continuous; required before full backend selection |
 
-The merged Phase A slices do not complete all draw/state abstractions; 13a.6b–c and 13a.8–10 remain required where not superseded by later reviewed slices.
+The merged Phase A slices do not complete all draw/state abstractions; retain only residual consumers and the 13a.10 inventory, not already integrated slices.
 
 ## Phase B — resource abstraction
 
@@ -85,9 +85,9 @@ Previous documentation briefs #93 (retained surface access) and #100 (ordinary 2
 ### Execution lanes and review gates
 
 - Device: #95 implements an isolated DX11 smoke executable, independent of the game. Review/build/run on Windows hardware and WARP; do not select it in gameplay. After acceptance, 13c.2 buffer slice can use #88 contracts, then texture/target slices after ownership contracts.
-- Resources: #94 uses #105; #115/#116 descriptor-only code is independent. Continue actual resource migrations after local review. Preserve DX8 baseline, W3D identity and all unconverted paths. Split 13b.4 into targets/depth, copy/readback/editor previews, reset/recreation/cursor; then 13b.5 remaining VB/IB, textures and escape audit.
-- States: #117 first, #118 stacked; #119 independent but shared Renderer header/backend need reconciliation. Preserve original call order and cache invalidation. No new visual effects.
-- Host checks: #94 passed 80 isolated atlas combinations; #115 passed 6,285 volume and 198 cube cases; #116 seven depth formats and boundary cases. These are hash-verified host harnesses, descriptor harness uses minimal format stubs. Not game builds or native GPU tests. #117–119 static-only; #95 Windows build/runtime pending. Main #107 reported four successful builds, 288 tests per game and game checks, not integrated-candidate results or CRC.
+- Resources: #94 uses #105; #115/#116 descriptor-only code is integrated. Continue actual resource migrations after local review. Preserve DX8 baseline, W3D identity and all unconverted paths. Split 13b.4 into targets/depth, copy/readback/editor previews, reset/recreation/cursor; then 13b.5 remaining VB/IB, textures and escape audit.
+- States: #117/#119 merged; #118 head is already contained in main. Reconcile only remaining Renderer header/backend consumers. Preserve original call order and cache invalidation. No new visual effects.
+- Host checks: #94 passed 80 isolated atlas combinations; #115 passed 6,285 volume and 198 cube cases; #116 seven depth formats and boundary cases. These are hash-verified host harnesses, descriptor harness uses minimal format stubs. Not game builds or native GPU tests. #117–119 original static validation only (later integration evidence must be checked); #95 Windows build/runtime pending. Main #107 reported four successful builds, 288 tests per game and game checks, not integrated-candidate results or CRC.
 - Refresh current main before applying; merge nothing automatically. #71/#75 remain deferred.
 
 ## Phase C — actual DX11 backend
