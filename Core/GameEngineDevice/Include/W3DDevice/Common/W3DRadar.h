@@ -34,6 +34,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/Radar.h"
 #include "WW3D2/Renderer.h"
+#include <vector>
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class TextureClass;
@@ -86,7 +87,15 @@ protected:
 	void drawIcons( Int pixelX, Int pixelY, Int width, Int height );	///< draw all of the radar icons
 	void updateObjectTexture(TextureClass *texture);
 	static Bool canRenderObject( const RadarObject *rObj, const Player *localPlayer );
-	void renderObjectList( const RadarObject *listHead, const RenderTextures::SurfaceWriteView &view );
+	// Presentation-only values; never retain a RadarObject, Object or Player pointer.
+	struct OverlayBlip
+	{
+		Int x, y;
+		Color argb;
+	};
+	void collectOverlayBlips( const RadarObject *listHead, const Player *player );
+	void renderOverlayBlips( const RenderTextures::SurfaceWriteView &view ) const;
+	std::vector<OverlayBlip> m_overlayBlips; ///< reusable scratch, empty after each overlay update
 	void interpolateColorForHeight( RGBColor *color,
 																	Real height,
 																	Real hiZ,

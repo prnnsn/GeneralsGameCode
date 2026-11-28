@@ -609,16 +609,28 @@ void W3DRadar::drawIcons( Int pixelX, Int pixelY, Int width, Int height )
 //-------------------------------------------------------------------------------------------------
 void W3DRadar::updateObjectTexture(TextureClass *texture)
 {
+	if (!texture)
+		return;
+
+	// TheSuperHackers @refactor Capture visible blips before mapping the graphics resource.
+	// Keep the existing list order, visibility decisions and overlay refresh cadence.
+	m_overlayBlips.clear();
+	const Player *player = rts::getObservedOrLocalPlayer();
+	collectOverlayBlips(m_objectList, player);
+	collectOverlayBlips(m_localObjectList, player);
+
 	Renderer::TextureMipWrite write;
-	if (!texture || !write.Try_Begin(*texture))
-		return;
+	if (write.Try_Begin(*texture))
+	{
+		const auto &view = write.View();
+		if (RenderTextures::TryClearRows(view.layout, view.data, view.pitch, view.byte_count))
+		{
+			renderOverlayBlips(view);
+		}
+	}
 
-	const auto &view = write.View();
-	if (!RenderTextures::TryClearRows(view.layout, view.data, view.pitch, view.byte_count))
-		return;
-
-	renderObjectList( m_objectList, view );
-	renderObjectList( m_localObjectList, view );
+	// Do not carry visibility/position data across frames, player changes or maps.
+	m_overlayBlips.clear();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -670,16 +682,13 @@ Bool W3DRadar::canRenderObject( const RadarObject *rObj, const Player *localPlay
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Render an object list into the mapped radar overlay */
+/** Capture visible object values in the existing radar list order. */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::renderObjectList( const RadarObject *listHead, const RenderTextures::SurfaceWriteView &view )
+void W3DRadar::collectOverlayBlips( const RadarObject *listHead, const Player *player )
 {
 	if (!listHead)
 		return;
 
-	Player *player = rts::getObservedOrLocalPlayer();
-	const Int width = static_cast<Int>(std::min(view.layout.width, unsigned(RADAR_CELL_WIDTH)));
-	const Int height = static_cast<Int>(std::min(view.layout.height, unsigned(RADAR_CELL_HEIGHT)));
 
 	for( const RadarObject *rObj = listHead; rObj; rObj = rObj->friend_getNext() )
 	{
@@ -693,7 +702,7 @@ void W3DRadar::renderObjectList( const RadarObject *listHead, const RenderTextur
 		// A 2x2 blip can straddle the left or top edge by one pixel.
 		const Int x = pos->x / (m_mapExtent.width() / RADAR_CELL_WIDTH);
 		const Int y = pos->y / (m_mapExtent.height() / RADAR_CELL_HEIGHT);
-		if (x < -1 || y < -1 || x >= width || y >= height)
+		if (x < -1 || y < -1 || x >= RADAR_CELL_WIDTH || y >= RADAR_CELL_HEIGHT)
 			continue;
 
 		// get the color we're going to draw in
@@ -720,7 +729,23 @@ void W3DRadar::renderObjectList( const RadarObject *listHead, const RenderTextur
 
 		}
 
-		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(view.format, argbColor);
+		m_overlayBlips.push_back({x, y, argbColor});
+	}
+}
+
+void W3DRadar::renderOverlayBlips( const RenderTextures::SurfaceWriteView &view ) const
+{
+	const Int width = static_cast<Int>(std::min(view.layout.width, unsigned(RADAR_CELL_WIDTH)));
+	const Int height = static_cast<Int>(std::min(view.layout.height, unsigned(RADAR_CELL_HEIGHT)));
+
+	for (const OverlayBlip &blip : m_overlayBlips)
+	{
+		const Int x = blip.x;
+		const Int y = blip.y;
+		if (x < -1 || y < -1 || x >= width || y >= height)
+			continue;
+
+		const unsigned int pixelColor = ARGB_Color_To_WW3D_Color(view.format, blip.argb);
 		RenderTextures::TryFillPixelRect(view, std::max(0, x), std::max(0, y),
 			std::min(x + 1, width - 1), std::min(y + 1, height - 1), pixelColor);
 	}
