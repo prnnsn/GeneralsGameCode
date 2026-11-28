@@ -13,7 +13,7 @@ Existing PRs #32–52 are open drafts as checked for this revision. This documen
 | OPT-D | #37, #51, #52 | Keep distinct PRs. Finish local mask optimization, then evaluate disabled-object membership, then expiration scheduling. Check per-frame determinism separately at each stage. |
 | OPT-E | #32 | SIM / Perf: occupied weapon-slot iteration; independent implementation PR, standalone harness passed, engine tests outstanding. |
 | Independent | #34, #38, #41, #47, #49, #50 | Do not bundle into OPT-A. #34 has code and standalone harness results; engine tests outstanding. #50 is profiling first. |
-| Feature (not optimization) | #33 | Keep eight-slot expansion independent; test both combinations with #32. |
+| SIM / Feature / ZH (not optimization) | #33 | Zero Hour-only eight-slot expansion; independent feature PR, test both combinations with #32. |
 
 ## OPT-A implementation contract
 
@@ -35,3 +35,7 @@ This is an AI-assisted planning document for the owner’s fork, not an upstream
 Current implementation candidates: OPT-A #106 includes #35/#40/#36/#39; OPT-B #111 includes #42/#43; OPT-C #112 includes #44/#45/#46/#48. Review component commits and test each behavior within the combined candidate; do not compile/merge original design or code PRs a second time. Retain originals for provenance/fallback until owner/reviewer acceptance. Each stack keeps its own deterministic regression gate; do not combine A/B/C into one large SIM PR.
 
 Independent code candidates: #110 (LocomotorSet/#38), #108 (TurretAI/#41), #113 (Behavior name cache/#47), #109 (SpecialPower cooldown/#49), #114 (ModelConditionState profiling/#50). Do not duplicate the design briefs in implementation. No additional bundling: lifetime, memory/benefit measurement and per-frame CRC isolation differ. #113 and #112 share object lifecycle concerns: integrate sequentially and recheck construction/teardown, not one inseparable change. #114 remains diagnostic-only with baseline measurements. #32 (OPT-E, SIM/Perf) and #34 remain standalone PRs. After individual code review, they may share one local integration build and comprehensive test session if current-main diffs remain independent; preserve per-change CRC/behavior checks and isolate any regression. #33 remains a separate feature and gets cross-combination testing with #32. OPT-D remains deferred/isolated; no new implementation. No additional code merging, runtime or build claims. Reuse build artifacts only from the identical tested commit/configuration; run shared fixture sets once per integration head, not once per original brief.
+
+## Classification convention
+
+`SIM` identifies the affected simulation subsystem, `Perf`/`Feature` the purpose of the change, `OPT-*` the performance roadmap group, and `ZH` the Zero Hour target scope rather than a thematic category. PR #33 is `[SIM][Feature][ZH]`; it is not part of OPT-E. Preserve independent review and serialization/network/replay compatibility gates. Shared Core changes still require relevant base Generals regression coverage.
