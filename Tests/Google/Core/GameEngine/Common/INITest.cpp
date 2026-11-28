@@ -22,6 +22,8 @@
 #include <gtest/gtest.h>
 
 #include "Common/INI.h"
+#include "Common/INIValidationDiagnostic.h"
+#include "Common/INIValidationSession.h"
 
 TEST(INI, OversizedIntegersMatchLegacyParser)
 {
@@ -119,4 +121,74 @@ TEST(INI, InvalidRealsAreRejected)
 		Real legacy;
 		EXPECT_NE(std::sscanf(token, "%f", &legacy), 1);
 	}
+}
+
+
+TEST(INIValidation, DiagnosticIdentifiesValidatorAndSeverity)
+{
+	using namespace INIValidation;
+	Diagnostic startup(INITIAL_INI_VALIDATOR, SEVERITY_DEFERRED, "REF_UPGRADE");
+	startup.file = "Data/INI/Object/Test.ini";
+	startup.line = 42;
+	startup.entity = "TestTank";
+	startup.module = "GrantUpgradeCreate";
+	startup.moduleTag = "ModuleTag_Test";
+	startup.field = "UpgradeToGrant";
+	startup.value = "Upgrade_Missing";
+	EXPECT_EQ(formatDiagnostic(startup),
+		"[IIV] [DEFERRED] rule=\"REF_UPGRADE\" file=\"Data/INI/Object/Test.ini\" line=42 entity=\"TestTank\" module=\"GrantUpgradeCreate\" tag=\"ModuleTag_Test\" field=\"UpgradeToGrant\" value=\"Upgrade_Missing\"");
+
+	Diagnostic map(MAP_INI_VALIDATOR, SEVERITY_ERROR, "REF_UPGRADE");
+	EXPECT_EQ(formatDiagnostic(map), "[MIV] [ERROR] rule=\"REF_UPGRADE\"");
+	EXPECT_STREQ(severityName(SEVERITY_VALID), "VALID");
+	EXPECT_STREQ(severityName(SEVERITY_WARNING), "WARNING");
+}
+
+TEST(INIValidation, DiagnosticEscapesMalformedInputAndOmitsUnknownLine)
+{
+	using namespace INIValidation;
+	Diagnostic diagnostic(MAP_INI_VALIDATOR, SEVERITY_WARNING, "UNKNOWN_FIELD");
+	diagnostic.value = "a\n\r\t\"\\b";
+	EXPECT_EQ(formatDiagnostic(diagnostic),
+		"[MIV] [WARNING] rule=\"UNKNOWN_FIELD\" value=\"a\\x0A\\x0D\\x09\\\"\\\\b\"");
+}
+
+
+TEST(INIValidation, SessionKeepsStageAndMapIsolated)
+{
+	using namespace INIValidation;
+	Session startup(INITIAL_INI_VALIDATOR, "unused");
+	Diagnostic deferred(INITIAL_INI_VALIDATOR, SEVERITY_DEFERRED, "REF");
+	Diagnostic error(MAP_INI_VALIDATOR, SEVERITY_ERROR, "REF");
+	EXPECT_TRUE(startup.map().empty());
+	EXPECT_TRUE(startup.add(deferred));
+	EXPECT_FALSE(startup.add(error));
+	EXPECT_EQ(startup.count(SEVERITY_DEFERRED), 1u);
+	EXPECT_EQ(startup.count(SEVERITY_ERROR), 0u);
+
+	Session mapA(MAP_INI_VALIDATOR, "Maps/A/A.map");
+	EXPECT_TRUE(mapA.add(error));
+	EXPECT_FALSE(mapA.add(deferred));
+	EXPECT_EQ(mapA.count(SEVERITY_ERROR), 1u);
+	EXPECT_EQ(mapA.map(), "Maps/A/A.map");
+	Session mapB(MAP_INI_VALIDATOR, "Maps/B/B.map");
+	EXPECT_EQ(mapB.size(), 0u);
+	Session mapAAgain(MAP_INI_VALIDATOR, "Maps/A/A.map");
+	EXPECT_EQ(mapAAgain.size(), 0u);
+}
+
+TEST(INIValidation, SessionFormatsRecordsInStableOrder)
+{
+	using namespace INIValidation;
+	Session session(MAP_INI_VALIDATOR, "Maps/A/A.map");
+	Diagnostic z(MAP_INI_VALIDATOR, SEVERITY_ERROR, "Z_RULE");
+	Diagnostic a(MAP_INI_VALIDATOR, SEVERITY_ERROR, "A_RULE");
+	ASSERT_TRUE(session.add(z));
+	ASSERT_TRUE(session.add(a));
+	ASSERT_TRUE(session.add(a));
+	const std::vector<std::string> records = session.formattedRecords();
+	ASSERT_EQ(records.size(), 3u);
+	EXPECT_EQ(records[0], formatDiagnostic(a));
+	EXPECT_EQ(records[1], formatDiagnostic(a));
+	EXPECT_EQ(records[2], formatDiagnostic(z));
 }
